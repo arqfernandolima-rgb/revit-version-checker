@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Revit Version Checker — Autodesk Forma / ACC</title>
+<style>
+  :root {
+    --bg: #0f0f0f;
+    --surface: #181818;
+    --surface2: #212121;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #f0f0f0;
+    --muted: #888;
+    --hint: #555;
+    --blue: #1473E6;
+    --blue-light: #378AFF;
+    --blue-dim: rgba(20,115,230,0.15);
+    --green: #1D9E75;
+    --green-dim: rgba(29,158,117,0.15);
+    --amber: #EF9F27;
+    --amber-dim: rgba(239,159,39,0.15);
+    --red: #E24B4A;
+    --red-dim: rgba(226,75,74,0.15);
+    --purple: #7F77DD;
+    --purple-dim: rgba(127,119,221,0.15);
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { background: var(--bg); color: var(--text); font-family: 'DM Sans', -apple-system, sans-serif; font-size: 14px; line-height: 1.6; }
+  body { min-height: 100vh; }
+
+  /* TOPBAR */
+  .topbar {
+    background: #0a0a0a;
+    border-bottom: 0.5px solid var(--border);
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 12px; }
+  .logo-mark {
+    width: 28px; height: 28px; background: var(--blue); border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logo-mark svg { width: 16px; height: 16px; }
+  .app-name { font-size: 14px; font-weight: 600; color: var(--text); letter-spacing: -0.01em; }
+  .app-sub { font-size: 12px; color: var(--muted); padding-left: 10px; border-left: 0.5px solid var(--border2); margin-left: 2px; }
+  .user-chip {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface); border: 0.5px solid var(--border2);
+    border-radius: 20px; padding: 4px 12px 4px 6px; cursor: default;
+  }
+  .avatar {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--blue-dim); border: 1px solid var(--blue);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 600; color: var(--blue-light);
+  }
+  .user-name { font-size: 12px; color: var(--muted); }
+
+  /* LAYOUT */
+  .shell { display: flex; min-height: calc(100vh - 52px); }
+  .sidebar {
+    width: 240px; flex-shrink: 0;
+    background: var(--surface);
+    border-right: 0.5px solid var(--border);
+    padding: 20px 0;
+    display: flex; flex-direction: column;
+  }
+  .content { flex: 1; padding: 24px; overflow-x: hidden; }
+
+  /* SIDEBAR NAV */
+  .sidebar-section { padding: 0 16px; margin-bottom: 20px; }
+  .sidebar-label {
+    font-size: 10px; font-weight: 600; color: var(--hint);
+    text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px; border-radius: var(--radius);
+    font-size: 13px; color: var(--muted); cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    border: none; background: transparent; width: 100%; text-align: left;
+  }
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active { background: var(--blue-dim); color: var(--blue-light); }
+  .nav-item svg { width: 14px; height: 14px; flex-shrink: 0; }
+  .nav-divider { height: 0.5px; background: var(--border); margin: 8px 16px; }
+
+  /* STEP INDICATOR */
+  .steps { display: flex; align-items: center; gap: 0; margin-bottom: 28px; }
+  .step {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--hint);
+  }
+  .step.done { color: var(--green); }
+  .step.active { color: var(--text); }
+  .step-num {
+    width: 20px; height: 20px; border-radius: 50%;
+    border: 1px solid currentColor;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 600; flex-shrink: 0;
+  }
+  .step.done .step-num { background: var(--green); border-color: var(--green); color: #fff; }
+  .step-line { flex: 1; height: 0.5px; background: var(--border); margin: 0 10px; max-width: 40px; }
+
+  /* CARDS */
+  .card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .card-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 14px; }
+
+  /* FORMS */
+  .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+  .field label { font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .field input, .field select {
+    height: 36px;
+    background: var(--surface2);
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 0 12px;
+    font-size: 13px;
+    font-family: inherit;
+    transition: border-color 0.15s;
+    outline: none;
+  }
+  .field input:focus, .field select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-dim); }
+  .field input::placeholder { color: var(--hint); }
+  .field select option { background: #1a1a1a; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  /* BUTTONS */
+  .btn {
+    height: 36px; padding: 0 16px; border-radius: var(--radius);
+    font-size: 13px; font-weight: 500; font-family: inherit;
+    cursor: pointer; border: none; transition: all 0.15s; display: inline-flex;
+    align-items: center; gap: 6px; white-space: nowrap;
+  }
+  .btn-blue { background: var(--blue); color: #fff; }
+  .btn-blue:hover { background: var(--blue-light); }
+  .btn-blue:disabled { opacity: 0.4; cursor: default; }
+  .btn-ghost {
+    background: transparent; color: var(--muted);
+    border: 0.5px solid var(--border2);
+  }
+  .btn-ghost:hover { background: var(--surface2); color: var(--text); }
+  .btn-sm { height: 28px; padding: 0 10px; font-size: 12px; }
+  .btn-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+  /* ALERT */
+  .alert {
+    border-radius: var(--radius);
+    padding: 10px 14px; font-size: 13px;
+    display: flex; align-items: flex-start; gap: 8px;
+    margin-bottom: 14px; line-height: 1.5;
+  }
+  .alert-info { background: var(--blue-dim); border: 0.5px solid rgba(20,115,230,0.3); color: #7ab4f5; }
+  .alert-warn { background: var(--amber-dim); border: 0.5px solid rgba(239,159,39,0.3); color: #f5c96a; }
+  .alert-err  { background: var(--red-dim);   border: 0.5px solid rgba(226,75,74,0.3);  color: #f5a09f; }
+  .alert svg { width: 14px; height: 14px; flex-shrink: 0; margin-top: 1px; }
+
+  /* GRID ITEMS */
+  .grid-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+  .grid-item {
+    background: var(--surface2); border: 0.5px solid var(--border);
+    border-radius: var(--radius); padding: 14px;
+    cursor: pointer; transition: border-color 0.15s, background 0.15s;
+    text-align: left;
+  }
+  .grid-item:hover { border-color: var(--blue); background: var(--blue-dim); }
+  .grid-item-name { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 3px; }
+  .grid-item-sub { font-size: 11px; color: var(--hint); }
+
+  /* BREADCRUMB */
+  .breadcrumb { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-bottom: 18px; }
+  .breadcrumb a { font-size: 12px; color: var(--muted); cursor: pointer; }
+  .breadcrumb a:hover { color: var(--text); }
+  .breadcrumb .crumb-active { font-size: 12px; color: var(--text); font-weight: 500; }
+  .breadcrumb .sep { font-size: 12px; color: var(--hint); }
+
+  /* METRICS */
+  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .metric {
+    background: var(--surface); border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg); padding: 16px;
+  }
+  .metric-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .metric-val { font-size: 26px; font-weight: 600; color: var(--text); line-height: 1; }
+  .metric-sub { font-size: 11px; color: var(--hint); margin-top: 4px; }
+
+  /* PROGRESS */
+  .scan-progress {
+    background: var(--surface); border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg); padding: 20px; margin-bottom: 16px;
+  }
+  .progress-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .progress-title { font-size: 13px; font-weight: 500; color: var(--text); }
+  .progress-pct { font-size: 13px; font-weight: 600; color: var(--blue-light); }
+  .progress-track { height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; margin-bottom: 10px; }
+  .progress-fill { height: 100%; background: var(--blue); border-radius: 2px; transition: width 0.3s ease; }
+  .progress-msg { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .progress-stats { font-size: 11px; color: var(--hint); margin-top: 8px; }
+  .spinner { display: inline-block; width: 12px; height: 12px; border: 1.5px solid var(--border2); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* TABLE */
+  .table-card {
+    background: var(--surface); border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg); overflow: hidden;
+  }
+  .table-header {
+    padding: 14px 18px;
+    border-bottom: 0.5px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 10px;
+  }
+  .table-title { font-size: 13px; font-weight: 600; color: var(--text); }
+  .count-badge {
+    background: var(--surface2); border: 0.5px solid var(--border);
+    border-radius: 10px; padding: 1px 8px;
+    font-size: 11px; color: var(--muted);
+  }
+  .table-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .search-wrap { position: relative; }
+  .search-wrap svg { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); width: 12px; height: 12px; color: var(--hint); pointer-events: none; }
+  .search-input {
+    height: 28px; background: var(--surface2); border: 0.5px solid var(--border);
+    border-radius: var(--radius); color: var(--text);
+    padding: 0 10px 0 26px; font-size: 12px; font-family: inherit;
+    outline: none; width: 160px;
+  }
+  .search-input:focus { border-color: var(--blue); }
+  .filter-select {
+    height: 28px; background: var(--surface2); border: 0.5px solid var(--border);
+    border-radius: var(--radius); color: var(--text);
+    padding: 0 8px; font-size: 12px; font-family: inherit; outline: none; cursor: pointer;
+  }
+  .filter-select option { background: #1a1a1a; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  thead th {
+    padding: 9px 16px; text-align: left;
+    font-size: 10px; font-weight: 600; color: var(--hint);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    background: var(--surface2); border-bottom: 0.5px solid var(--border);
+    cursor: pointer; user-select: none;
+  }
+  thead th:hover { color: var(--muted); }
+  tbody tr { border-bottom: 0.5px solid var(--border); transition: background 0.1s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--surface2); }
+  tbody td { padding: 10px 16px; font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .col-name { width: 30%; }
+  .col-path { width: 22%; }
+  .col-ver  { width: 11%; }
+  .col-mod  { width: 15%; }
+  .col-user { width: 13%; }
+  .col-size { width: 9%; }
+
+  /* VER BADGES */
+  .ver-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 2px 10px; border-radius: 10px;
+    font-size: 11px; font-weight: 600; white-space: nowrap;
+  }
+  .ver-new   { background: var(--green-dim);  color: #4ecba3; border: 0.5px solid rgba(29,158,117,0.3); }
+  .ver-curr  { background: var(--blue-dim);   color: #7ab4f5; border: 0.5px solid rgba(20,115,230,0.3); }
+  .ver-old1  { background: var(--amber-dim);  color: #f5c96a; border: 0.5px solid rgba(239,159,39,0.3); }
+  .ver-old2  { background: var(--red-dim);    color: #f5a09f; border: 0.5px solid rgba(226,75,74,0.3); }
+  .ver-none  { background: var(--surface2);   color: var(--hint); border: 0.5px solid var(--border); }
+
+  /* FILE CELL */
+  .file-cell { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .rvt-icon { width: 28px; height: 28px; border-radius: 5px; background: var(--blue-dim); flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+  .rvt-icon span { font-size: 8px; font-weight: 700; color: var(--blue-light); letter-spacing: 0.03em; }
+  .file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-ws { font-size: 10px; color: var(--purple); background: var(--purple-dim); border-radius: 4px; padding: 0 4px; margin-left: 4px; flex-shrink: 0; }
+
+  /* PATH CELL */
+  .path-cell { font-size: 11px; color: var(--hint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* EMPTY */
+  .empty { padding: 60px 20px; text-align: center; }
+  .empty-icon { width: 48px; height: 48px; margin: 0 auto 14px; opacity: 0.15; }
+  .empty-title { font-size: 14px; font-weight: 500; color: var(--muted); margin-bottom: 5px; }
+  .empty-sub { font-size: 13px; color: var(--hint); }
+
+  /* FOLDER CHIPS */
+  .folder-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .folder-chip {
+    display: flex; align-items: center; gap: 5px;
+    background: var(--surface2); border: 0.5px solid var(--border);
+    border-radius: var(--radius); padding: 5px 10px;
+    font-size: 12px; color: var(--muted); cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .folder-chip:hover { border-color: var(--blue); color: var(--text); }
+  .folder-chip svg { width: 12px; height: 12px; }
+
+  /* VER LEGEND */
+  .ver-legend { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* TOOLTIP-LIKE path truncation on hover handled by title attr */
+
+  @media (max-width: 700px) {
+    .sidebar { display: none; }
+    .metrics { grid-template-columns: 1fr 1fr; }
+    .field-row { grid-template-columns: 1fr; }
+    .col-path, .col-size, .col-user { display: none; }
+  }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="logo-mark">
+      <svg viewBox="0 0 16 16" fill="white"><path d="M2 12L5.5 3h2l3.5 9H9l-.8-2.2H5.8L5 12H2zm4.5-7L5.1 8.4h2.8L6.5 5z"/><rect x="10" y="3" width="1.2" height="9" fill="white" opacity="0.5"/><rect x="12" y="3" width="1.8" height="9" rx="0.4" fill="white" opacity="0.8"/></svg>
+    </div>
+    <span class="app-name">Revit Version Checker</span>
+    <span class="app-sub">Autodesk Forma / ACC</span>
+  </div>
+  <div id="topbar-right"></div>
+</div>
+
+<div class="shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Navigate</div>
+      <button class="nav-item active" id="nav-scan" onclick="navClick('scan')">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 4h14v1.5H1zm0 3h14v1.5H1zm0 3h9v1.5H1z"/></svg>
+        Scan files
+      </button>
+      <button class="nav-item" id="nav-about" onclick="navClick('about')">
+        <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M8 7v5M8 5v1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        About
+      </button>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="sidebar-section" id="sidebar-tree"></div>
+    <div style="flex:1"></div>
+    <div class="sidebar-section" style="margin-bottom:0">
+      <a class="nav-item" href="https://github.com/YOUR_USERNAME/revit-version-checker" target="_blank" style="text-decoration:none">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 .5a7.5 7.5 0 00-2.372 14.619c.375.069.513-.163.513-.361 0-.178-.006-.65-.01-1.276-2.085.453-2.525-.999-2.525-.999-.34-.865-.831-1.095-.831-1.095-.68-.464.051-.455.051-.455.751.053 1.147.772 1.147.772.667 1.143 1.750.813 2.176.622.068-.483.261-.813.474-.999-1.664-.19-3.414-.832-3.414-3.7 0-.817.292-1.486.771-2.009-.077-.19-.334-.95.073-1.981 0 0 .629-.201 2.06.768A7.17 7.17 0 018 4.42a7.17 7.17 0 011.88.253c1.429-.97 2.057-.768 2.057-.768.409 1.031.152 1.791.075 1.981.48.523.77 1.192.77 2.009 0 2.876-1.752 3.508-3.42 3.694.268.232.508.688.508 1.387 0 1.002-.009 1.81-.009 2.056 0 .2.135.434.517.36A7.501 7.501 0 008 .5z"/></svg>
+        GitHub
+      </a>
+      <a class="nav-item" href="https://aps.autodesk.com" target="_blank" style="text-decoration:none">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1l7 13H1L8 1zm0 3.5L3.5 12h9L8 4.5z"/></svg>
+        APS Docs
+      </a>
+    </div>
+  </nav>
+
+  <main class="content" id="main-content"></main>
+</div>
+
+<script>
+const APS = 'https://developer.api.autodesk.com';
+
+const state = {
+  phase: 'setup',        // setup | selectHub | selectProject | browse | about
+  token: localStorage.getItem('rvt_token') || '',
+  userName: localStorage.getItem('rvt_username') || '',
+  hubs: [], selectedHub: null,
+  projects: [], selectedProject: null,
+  topFolders: [], folderPath: [],
+  files: [],
+  scanning: false, scanProgress: 0, scanMsg: '', scanTotal: 0, scanDone: 0,
+  filterVer: 'all', filterSearch: '',
+  sortCol: 'name', sortDir: 1,
+  error: null,
+  scanAborted: false
+};
+
+// ─── API ──────────────────────────────────────────────────────────────────────
+async function api(path) {
+  const r = await fetch(APS + path, { headers: { Authorization: 'Bearer ' + state.token } });
+  if (!r.ok) throw new Error(r.status + ' ' + r.statusText + ' — ' + path);
+  return r.json();
+}
+
+// ─── RECURSIVE SCAN ──────────────────────────────────────────────────────────
+async function scanFolder(projectId, folderId, pathLabel) {
+  if (state.scanAborted) return;
+  let contents;
+  try {
+    const d = await api('/data/v1/projects/' + projectId + '/folders/' + folderId + '/contents');
+    contents = d.data || [];
+  } catch(e) {
+    console.warn('Could not read folder', folderId, e.message);
+    return;
+  }
+
+  const subFolders = contents.filter(i => i.type === 'folders');
+  const rvtItems = contents.filter(i =>
+    i.type === 'items' &&
+    i.attributes && i.attributes.displayName &&
+    i.attributes.displayName.toLowerCase().endsWith('.rvt')
+  );
+
+  state.scanTotal += rvtItems.length;
+  render();
+
+  for (const item of rvtItems) {
+    if (state.scanAborted) return;
+    state.scanMsg = item.attributes.displayName;
+    render();
+    try {
+      const vd = await api('/data/v1/projects/' + projectId + '/items/' + encodeURIComponent(item.id) + '/versions');
+      const latest = (vd.data || [])[0];
+      const attr = latest && latest.attributes;
+      const ext = attr && attr.extension && attr.extension.data;
+      state.files.push({
+        id: item.id,
+        name: item.attributes.displayName,
+        path: pathLabel,
+        revitVersion: ext && ext.revitProjectVersion ? String(ext.revitProjectVersion) : null,
+        versionNumber: attr && attr.versionNumber,
+        modifiedTime: attr && attr.lastModifiedTime,
+        modifiedBy: attr && attr.lastModifiedUserName,
+        size: attr && attr.storageSize,
+        isWorkshared: !!(ext && ext.isCompositeDesign),
+        error: false
+      });
+    } catch(e) {
+      state.files.push({ id: item.id, name: item.attributes.displayName, path: pathLabel, revitVersion: null, error: true });
+    }
+    state.scanDone++;
+    state.scanProgress = state.scanTotal > 0 ? Math.round((state.scanDone / state.scanTotal) * 100) : 0;
+    render();
+  }
+
+  for (const folder of subFolders) {
+    if (state.scanAborted) return;
+    const subName = folder.attributes.displayName || folder.attributes.name || folder.id;
+    await scanFolder(projectId, folder.id, pathLabel + ' / ' + subName);
+  }
+}
+
+async function startScan(folderId, folderName) {
+  state.files = [];
+  state.scanning = true;
+  state.scanAborted = false;
+  state.scanProgress = 0;
+  state.scanTotal = 0;
+  state.scanDone = 0;
+  state.scanMsg = 'Starting scan...';
+  state.error = null;
+  render();
+  try {
+    await scanFolder(state.selectedProject.id, folderId, folderName);
+  } catch(e) {
+    state.error = 'Scan error: ' + e.message;
+  }
+  state.scanning = false;
+  if (!state.scanAborted) state.scanProgress = 100;
+  render();
+}
+
+// ─── LOAD HELPERS ─────────────────────────────────────────────────────────────
+async function loadHubs() {
+  state.scanning = false; state.error = null;
+  try {
+    const d = await api('/project/v1/hubs');
+    state.hubs = d.data || [];
+    if (state.hubs.length === 1) {
+      selectHub(state.hubs[0].id, state.hubs[0].attributes.name);
+      return;
+    }
+    state.phase = 'selectHub'; render();
+  } catch(e) { state.error = 'Could not load hubs — check your token. ' + e.message; render(); }
+}
+
+function selectHub(id, name) {
+  state.selectedHub = { id, name };
+  state.phase = 'selectProject';
+  state.projects = [];
+  api('/project/v1/hubs/' + id + '/projects').then(d => {
+    state.projects = d.data || [];
+    render();
+  }).catch(e => { state.error = e.message; render(); });
+}
+
+function selectProject(id, name) {
+  state.selectedProject = { id, name };
+  state.topFolders = [];
+  state.folderPath = [];
+  state.files = [];
+  state.phase = 'browse';
+  api('/project/v1/hubs/' + state.selectedHub.id + '/projects/' + id + '/topFolders').then(d => {
+    state.topFolders = d.data || [];
+    render();
+  }).catch(e => { state.error = e.message; render(); });
+}
+
+// ─── DEMO DATA ────────────────────────────────────────────────────────────────
+function loadDemo() {
+  state.token = 'demo';
+  state.userName = 'Demo User';
+  state.selectedHub = { id: 'h1', name: 'Forma Cloud Hub' };
+  state.selectedProject = { id: 'p1', name: 'Greenfield Mixed-Use Development' };
+  state.topFolders = [];
+  state.folderPath = [];
+  state.scanning = false;
+  state.scanProgress = 100;
+  state.files = [
+    { id:'1', name:'ARK-Main-Building.rvt',      path:'Project Files / Architecture',        revitVersion:'2025', modifiedTime:'2026-03-10T14:22:00Z', modifiedBy:'Sarah Chen',       size:182400000, isWorkshared:true },
+    { id:'2', name:'ARK-Podium-Structure.rvt',   path:'Project Files / Architecture',        revitVersion:'2025', modifiedTime:'2026-03-09T09:11:00Z', modifiedBy:'Marcus Osei',      size:94000000,  isWorkshared:true },
+    { id:'3', name:'ARK-Facade-Panels.rvt',      path:'Project Files / Architecture',        revitVersion:'2024', modifiedTime:'2026-02-28T16:45:00Z', modifiedBy:'Priya Nair',       size:67000000,  isWorkshared:false },
+    { id:'4', name:'ARK-Lobby-Interior.rvt',     path:'Project Files / Architecture / DD',   revitVersion:'2024', modifiedTime:'2026-02-15T10:30:00Z', modifiedBy:'James Whitmore',   size:43000000,  isWorkshared:false },
+    { id:'5', name:'ARK-Roof-Terrace.rvt',       path:'Project Files / Architecture / DD',   revitVersion:'2026', modifiedTime:'2026-04-01T11:00:00Z', modifiedBy:'Sarah Chen',       size:29000000,  isWorkshared:false },
+    { id:'6', name:'ARK-Parking-Levels.rvt',     path:'Project Files / Architecture',        revitVersion:'2023', modifiedTime:'2025-11-20T08:00:00Z', modifiedBy:'Diego Reyes',      size:115000000, isWorkshared:true },
+    { id:'7', name:'STR-Foundation.rvt',         path:'Project Files / Structural',          revitVersion:'2025', modifiedTime:'2026-03-18T13:55:00Z', modifiedBy:'Fatima Al-Hassan', size:201000000, isWorkshared:true },
+    { id:'8', name:'STR-Frame-Tower.rvt',        path:'Project Files / Structural',          revitVersion:'2024', modifiedTime:'2026-01-12T09:00:00Z', modifiedBy:'Tom Eriksson',     size:155000000, isWorkshared:true },
+    { id:'9', name:'MEP-Mechanical.rvt',         path:'Project Files / MEP',                 revitVersion:'2025', modifiedTime:'2026-03-22T15:20:00Z', modifiedBy:'Aisha Bakr',       size:88000000,  isWorkshared:true },
+    { id:'10',name:'MEP-Electrical.rvt',         path:'Project Files / MEP',                 revitVersion:'2023', modifiedTime:'2025-10-05T07:30:00Z', modifiedBy:'Leo Navarro',      size:55000000,  isWorkshared:false },
+    { id:'11',name:'MEP-Plumbing.rvt',           path:'Project Files / MEP',                 revitVersion:'2024', modifiedTime:'2026-01-30T11:45:00Z', modifiedBy:'Mei Zhang',        size:62000000,  isWorkshared:false },
+    { id:'12',name:'COORD-Combined.rvt',         path:'Project Files / Coordination',        revitVersion:'2025', modifiedTime:'2026-04-10T15:20:00Z', modifiedBy:'Sarah Chen',       size:380000000, isWorkshared:true },
+    { id:'13',name:'ARK-Site-Survey.rvt',        path:'Project Files / Survey',              revitVersion:'2022', modifiedTime:'2025-04-05T07:30:00Z', modifiedBy:'Tom Eriksson',     size:32000000,  isWorkshared:false },
+    { id:'14',name:'ARK-Penthouse.rvt',          path:'Project Files / Architecture / CD',   revitVersion:'2026', modifiedTime:'2026-04-12T10:00:00Z', modifiedBy:'Sarah Chen',       size:38000000,  isWorkshared:false },
+    { id:'15',name:'INT-Lobby-Finishes.rvt',     path:'Project Files / Interiors',           revitVersion:'2024', modifiedTime:'2026-02-20T14:00:00Z', modifiedBy:'Priya Nair',       size:51000000,  isWorkshared:false },
+  ];
+  state.phase = 'browse';
+  render();
+}
+
+// ─── VERSION COLOUR ──────────────────────────────────────────────────────────
+function verClass(v, latestVer) {
+  if (!v) return 'ver-none';
+  const n = parseInt(v), l = parseInt(latestVer || v);
+  if (n >= l)   return 'ver-new';
+  if (n === l-1) return 'ver-curr';
+  if (n === l-2) return 'ver-old1';
+  return 'ver-old2';
+}
+
+// ─── UTILS ───────────────────────────────────────────────────────────────────
+function fmtDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'});
+}
+function fmtSize(b) {
+  if (!b) return '—';
+  return b >= 1048576 ? (b/1048576).toFixed(1)+' MB' : Math.round(b/1024)+' KB';
+}
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── RENDER PHASES ────────────────────────────────────────────────────────────
+function renderSetup() {
+  const hasSaved = !!state.token && state.token !== 'demo';
+  return `
+    <div style="max-width:600px">
+      <h2 style="font-size:18px;font-weight:600;margin-bottom:6px">Connect to Autodesk</h2>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:20px">Paste a 3-legged APS access token with <code style="background:var(--surface2);padding:1px 5px;border-radius:4px;font-size:12px">data:read</code> scope to browse your ACC / Forma projects.</p>
+
+      <div class="alert alert-info">
+        <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M8 7v5M8 5v1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        <span>Get a token at <a href="https://aps.autodesk.com/en/docs/oauth/v2/tutorials/get-3-legged-token" target="_blank" style="color:inherit;text-decoration:underline">aps.autodesk.com</a> or via your own OAuth flow. Tokens are stored in <code style="font-size:11px">localStorage</code> for convenience.</span>
+      </div>
+
+      <div class="card">
+        <div class="field">
+          <label>Access token (Bearer)</label>
+          <input id="inp-token" type="password" placeholder="eyJhbGciOiJSUzI1NiIs..." value="${escHtml(state.token)}" style="font-family:monospace;font-size:11px"/>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Your name (optional)</label>
+            <input id="inp-name" type="text" placeholder="Jane Smith" value="${escHtml(state.userName)}"/>
+          </div>
+        </div>
+        <div class="btn-row" style="margin-top:4px">
+          <button class="btn btn-blue" id="btn-connect">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 2a5 5 0 110 10A5 5 0 018 3zm-1 3v4l3 1.5-.5-1L9 9V6H7z"/></svg>
+            Connect
+          </button>
+          <button class="btn btn-ghost" id="btn-demo">Try demo data</button>
+          ${hasSaved ? `<button class="btn btn-ghost btn-sm" id="btn-clear">Clear saved token</button>` : ''}
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderHubs() {
+  return `
+    <div style="max-width:700px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+        <h2 style="font-size:16px;font-weight:600">Select a hub</h2>
+        <button class="btn btn-ghost btn-sm" onclick="backTo('setup')">Change token</button>
+      </div>
+      <div class="grid-items">
+        ${state.hubs.map(h => `
+          <button class="grid-item" onclick="selectHub('${h.id}','${escHtml(h.attributes.name)}')">
+            <div class="grid-item-name">${escHtml(h.attributes.name||h.id)}</div>
+            <div class="grid-item-sub">${h.attributes.region||'ACC Hub'}</div>
+          </button>`).join('')}
+      </div>
+    </div>`;
+}
+
+function renderProjects() {
+  return `
+    <div style="max-width:800px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+        <h2 style="font-size:16px;font-weight:600">Select a project</h2>
+        <button class="btn btn-ghost btn-sm" onclick="backTo('hub')">Back to hubs</button>
+      </div>
+      ${!state.projects.length ? '<div style="color:var(--hint);font-size:13px;display:flex;align-items:center;gap:8px"><span class="spinner"></span> Loading projects...</div>' : ''}
+      <div class="grid-items">
+        ${state.projects.map(p => `
+          <button class="grid-item" onclick="selectProject('${p.id}','${escHtml(p.attributes.name)}')">
+            <div class="grid-item-name">${escHtml(p.attributes.name||p.id)}</div>
+            <div class="grid-item-sub">ACC project</div>
+          </button>`).join('')}
+      </div>
+    </div>`;
+}
+
+function renderBrowse() {
+  const files = state.files;
+  const allVers = [...new Set(files.map(f=>f.revitVersion).filter(Boolean))].sort().reverse();
+  const latestVer = allVers[0];
+
+  let filtered = files;
+  if (state.filterVer !== 'all') filtered = filtered.filter(f => f.revitVersion === state.filterVer);
+  if (state.filterSearch) {
+    const q = state.filterSearch.toLowerCase();
+    filtered = filtered.filter(f => f.name.toLowerCase().includes(q) || (f.path||'').toLowerCase().includes(q) || (f.modifiedBy||'').toLowerCase().includes(q));
+  }
+  filtered = [...filtered].sort((a,b) => {
+    let av = a[state.sortCol]||'', bv = b[state.sortCol]||'';
+    if (state.sortCol === 'size') { av = a.size||0; bv = b.size||0; }
+    return av < bv ? -state.sortDir : av > bv ? state.sortDir : 0;
+  });
+
+  const outdated = files.filter(f => f.revitVersion && parseInt(f.revitVersion) < parseInt(latestVer||'9999')).length;
+
+  return `
+    <div class="breadcrumb">
+      <a onclick="backTo('hub')">${state.selectedHub&&state.selectedHub.name}</a>
+      <span class="sep">/</span>
+      <a onclick="backTo('project')">${state.selectedProject&&state.selectedProject.name}</a>
+      ${state.folderPath.map((f,i) => `
+        <span class="sep">/</span>
+        <a onclick="navPath(${i})">${escHtml(f.name)}</a>`).join('')}
+    </div>
+
+    ${files.length > 0 ? `
+    <div class="metrics">
+      <div class="metric">
+        <div class="metric-label">RVT files</div>
+        <div class="metric-val">${files.length}</div>
+        <div class="metric-sub">${state.scanning ? 'scanning...' : 'found'}</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Versions</div>
+        <div class="metric-val">${allVers.length}</div>
+        <div class="metric-sub">${allVers.slice(0,3).join(', ')}${allVers.length>3?'…':''}</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Latest</div>
+        <div class="metric-val">${latestVer||'—'}</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Outdated</div>
+        <div class="metric-val" style="color:${outdated>0?'var(--amber)':'var(--green)'}">${outdated}</div>
+        <div class="metric-sub">${outdated>0?'need upgrade':'all current'}</div>
+      </div>
+    </div>` : ''}
+
+    ${state.scanning ? `
+    <div class="scan-progress">
+      <div class="progress-header">
+        <span class="progress-title">Scanning recursively</span>
+        <span class="progress-pct">${state.scanProgress}%</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" style="width:${state.scanProgress}%"></div></div>
+      <div class="progress-msg"><span class="spinner"></span>${escHtml(state.scanMsg)}</div>
+      <div class="progress-stats">${state.scanDone} files checked · ${state.scanTotal} found</div>
+      <div style="margin-top:10px"><button class="btn btn-ghost btn-sm" onclick="abortScan()">Stop scan</button></div>
+    </div>` : ''}
+
+    ${!state.scanning && state.topFolders.length > 0 && files.length === 0 ? `
+    <div class="card">
+      <div class="card-title">Choose a folder to scan</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">All subfolders will be scanned recursively.</p>
+      <div class="folder-chips">
+        ${state.topFolders.map(f => {
+          const name = f.attributes.displayName||f.attributes.name||'Folder';
+          return `<button class="folder-chip" onclick="startScan('${f.id}','${escHtml(name)}')">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 4.5A1.5 1.5 0 012.5 3H6l1.5 1.5H13.5A1.5 1.5 0 0115 6v6a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 12V4.5z"/></svg>
+            ${escHtml(name)}
+          </button>`;
+        }).join('')}
+      </div>
+    </div>` : ''}
+
+    ${!state.scanning && files.length > 0 ? `
+    <div class="table-card">
+      <div class="table-header">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="table-title">Results</span>
+          <span class="count-badge">${filtered.length} of ${files.length}</span>
+        </div>
+        <div class="table-controls">
+          <div class="search-wrap">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M11.742 10.344a6.5 6.5 0 10-1.397 1.398l3.85 3.85a1 1 0 001.415-1.415l-3.868-3.833zm-5.242 1.156a5 5 0 110-10 5 5 0 010 10z"/></svg>
+            <input class="search-input" id="tbl-search" placeholder="Search files..." value="${escHtml(state.filterSearch)}" oninput="state.filterSearch=this.value;render()"/>
+          </div>
+          <select class="filter-select" onchange="state.filterVer=this.value;render()">
+            <option value="all">All versions</option>
+            ${allVers.map(v=>`<option value="${v}" ${state.filterVer===v?'selected':''}>${v}</option>`).join('')}
+          </select>
+          <button class="btn btn-ghost btn-sm" onclick="exportCsv()">Export CSV</button>
+          ${state.topFolders.length > 0 ? `<button class="btn btn-ghost btn-sm" onclick="state.files=[];render()">New scan</button>` : ''}
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th class="col-name"  onclick="sort('name')">File name ${state.sortCol==='name'?(state.sortDir===1?'↑':'↓'):''}</th>
+          <th class="col-path"  onclick="sort('path')">Path ${state.sortCol==='path'?(state.sortDir===1?'↑':'↓'):''}</th>
+          <th class="col-ver"   onclick="sort('revitVersion')">Version ${state.sortCol==='revitVersion'?(state.sortDir===1?'↑':'↓'):''}</th>
+          <th class="col-mod"   onclick="sort('modifiedTime')">Modified ${state.sortCol==='modifiedTime'?(state.sortDir===1?'↑':'↓'):''}</th>
+          <th class="col-user"  onclick="sort('modifiedBy')">By ${state.sortCol==='modifiedBy'?(state.sortDir===1?'↑':'↓'):''}</th>
+          <th class="col-size"  onclick="sort('size')">Size ${state.sortCol==='size'?(state.sortDir===1?'↑':'↓'):''}</th>
+        </tr></thead>
+        <tbody>
+          ${filtered.length === 0 ? `<tr><td colspan="6"><div class="empty"><div class="empty-title">No files match</div><div class="empty-sub">Try adjusting the filter or search</div></div></td></tr>` : ''}
+          ${filtered.map(f => `<tr>
+            <td title="${escHtml(f.name)}">
+              <div class="file-cell">
+                <div class="rvt-icon"><span>RVT</span></div>
+                <span class="file-name">${escHtml(f.name)}</span>
+                ${f.isWorkshared ? `<span class="file-ws">WS</span>` : ''}
+              </div>
+            </td>
+            <td><div class="path-cell" title="${escHtml(f.path||'')}">${escHtml(f.path||'—')}</div></td>
+            <td><span class="ver-badge ${verClass(f.revitVersion, latestVer)}">${f.revitVersion||'—'}</span></td>
+            <td style="font-size:12px;color:var(--muted)">${fmtDate(f.modifiedTime)}</td>
+            <td style="font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(f.modifiedBy||'')}">${escHtml(f.modifiedBy||'—')}</td>
+            <td style="font-size:12px;color:var(--hint)">${fmtSize(f.size)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+      </div>
+    </div>` : ''}
+
+    ${!state.scanning && files.length === 0 && state.topFolders.length === 0 ? `
+    <div style="color:var(--hint);font-size:13px;display:flex;align-items:center;gap:8px"><span class="spinner"></span>Loading folders...</div>` : ''}`;
+}
+
+function renderAbout() {
+  return `
+    <div style="max-width:580px">
+      <h2 style="font-size:18px;font-weight:600;margin-bottom:6px">About this app</h2>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:20px">Open-source Revit version checker for Autodesk Forma and ACC.</p>
+
+      <div class="card">
+        <div class="card-title">How it works</div>
+        <p style="font-size:13px;color:var(--muted);line-height:1.8;margin-bottom:12px">
+          Uses the <strong style="color:var(--text)">APS Data Management API</strong> to recursively walk every subfolder in your selected ACC project. For each <code style="background:var(--surface2);padding:1px 5px;border-radius:4px;font-size:11px">.rvt</code> file found, it fetches the latest version's metadata and reads the <code style="background:var(--surface2);padding:1px 5px;border-radius:4px;font-size:11px">revitProjectVersion</code> field — the authoritative Revit year stored by ACC.
+        </p>
+        <table style="width:100%;font-size:12px;border-collapse:collapse">
+          <tr style="border-bottom:0.5px solid var(--border)"><td style="padding:8px 0;color:var(--muted)">API</td><td style="padding:8px 0;color:var(--text)">APS Data Management v2</td></tr>
+          <tr style="border-bottom:0.5px solid var(--border)"><td style="padding:8px 0;color:var(--muted)">Auth</td><td style="padding:8px 0;color:var(--text)">3-legged OAuth 2.0 (data:read)</td></tr>
+          <tr style="border-bottom:0.5px solid var(--border)"><td style="padding:8px 0;color:var(--muted)">Version field</td><td style="padding:8px 0;color:var(--text)">attributes.extension.data.revitProjectVersion</td></tr>
+          <tr><td style="padding:8px 0;color:var(--muted)">Hosting</td><td style="padding:8px 0;color:var(--text)">Static HTML — no backend needed</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Version colour key</div>
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:13px">
+          <div style="display:flex;align-items:center;gap:10px"><span class="ver-badge ver-new">2026</span> <span style="color:var(--muted)">Latest — newest version found in project</span></div>
+          <div style="display:flex;align-items:center;gap:10px"><span class="ver-badge ver-curr">2025</span> <span style="color:var(--muted)">One version behind latest</span></div>
+          <div style="display:flex;align-items:center;gap:10px"><span class="ver-badge ver-old1">2024</span> <span style="color:var(--muted)">Two versions behind latest</span></div>
+          <div style="display:flex;align-items:center;gap:10px"><span class="ver-badge ver-old2">2023</span> <span style="color:var(--muted)">Three or more versions behind</span></div>
+          <div style="display:flex;align-items:center;gap:10px"><span class="ver-badge ver-none">—</span> <span style="color:var(--muted)">Version could not be read (non-cloud model)</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Get started</div>
+        <ol style="font-size:13px;color:var(--muted);padding-left:18px;line-height:2">
+          <li>Create an APS app at <a href="https://aps.autodesk.com" target="_blank" style="color:var(--blue-light)">aps.autodesk.com</a></li>
+          <li>Run a 3-legged OAuth flow for your ACC user</li>
+          <li>Paste the Bearer token on the Connect page</li>
+          <li>Choose a project and click any folder to start a recursive scan</li>
+        </ol>
+      </div>
+    </div>`;
+}
+
+// ─── MAIN RENDER ──────────────────────────────────────────────────────────────
+function render() {
+  // topbar user chip
+  const tr = document.getElementById('topbar-right');
+  if (state.userName && state.token) {
+    const initials = state.userName.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+    tr.innerHTML = `<div class="user-chip"><div class="avatar">${initials}</div><span class="user-name">${escHtml(state.userName)}</span></div>`;
+  } else { tr.innerHTML = ''; }
+
+  // sidebar tree (project context)
+  const st = document.getElementById('sidebar-tree');
+  if (state.selectedProject) {
+    st.innerHTML = `<div class="sidebar-label">Context</div>
+      <div style="padding:6px 10px;font-size:12px;color:var(--muted)">
+        <div style="color:var(--text);font-weight:500;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(state.selectedProject.name)}</div>
+        <div style="font-size:11px;color:var(--hint)">${escHtml(state.selectedHub&&state.selectedHub.name||'')}</div>
+        ${state.files.length > 0 ? `<div style="margin-top:6px;font-size:11px;color:var(--green)">${state.files.length} RVT files scanned</div>` : ''}
+      </div>`;
+  } else { st.innerHTML = ''; }
+
+  // update nav active state
+  ['scan','about'].forEach(k => {
+    const el = document.getElementById('nav-'+k);
+    if (el) el.className = 'nav-item' + (state.phase===k||((k==='scan')&&['setup','selectHub','selectProject','browse'].includes(state.phase)) ? ' active' : '');
+  });
+
+  const mc = document.getElementById('main-content');
+  let html = '';
+  if (state.error) html += `<div class="alert alert-err">
+    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm-.75 4h1.5v5h-1.5V5zm0 6h1.5v1.5h-1.5V11z"/></svg>
+    <span>${escHtml(state.error)} <button class="btn btn-ghost btn-sm" style="margin-left:8px" onclick="state.error=null;render()">Dismiss</button></span>
+  </div>`;
+  if (state.phase === 'setup')         html += renderSetup();
+  else if (state.phase === 'selectHub')    html += renderHubs();
+  else if (state.phase === 'selectProject') html += renderProjects();
+  else if (state.phase === 'browse')   html += renderBrowse();
+  else if (state.phase === 'about')    html += renderAbout();
+  mc.innerHTML = html;
+  bindEvents();
+}
+
+function bindEvents() {
+  const bc = document.getElementById('btn-connect');
+  if (bc) bc.onclick = () => {
+    state.token = document.getElementById('inp-token').value.trim();
+    state.userName = document.getElementById('inp-name').value.trim() || 'ACC User';
+    if (!state.token) { state.error = 'Please enter an access token.'; render(); return; }
+    localStorage.setItem('rvt_token', state.token);
+    localStorage.setItem('rvt_username', state.userName);
+    loadHubs();
+  };
+  const bd = document.getElementById('btn-demo');
+  if (bd) bd.onclick = loadDemo;
+  const bclr = document.getElementById('btn-clear');
+  if (bclr) bclr.onclick = () => {
+    localStorage.removeItem('rvt_token'); localStorage.removeItem('rvt_username');
+    state.token = ''; state.userName = ''; render();
+  };
+}
+
+window.navClick = (k) => { state.phase = k; state.error = null; render(); };
+window.backTo = (to) => {
+  state.error = null;
+  if (to === 'setup')   { state.phase = 'setup'; }
+  if (to === 'hub')     { state.phase = 'selectHub'; }
+  if (to === 'project') { state.phase = 'selectProject'; state.files = []; state.topFolders = []; state.folderPath = []; state.scanning = false; }
+  render();
+};
+window.navPath = (i) => {
+  const f = state.folderPath[i];
+  state.folderPath = state.folderPath.slice(0, i+1);
+  state.files = [];
+  startScan(f.id, f.name);
+};
+window.sort = (col) => {
+  if (state.sortCol === col) state.sortDir *= -1; else { state.sortCol = col; state.sortDir = 1; }
+  render();
+};
+window.abortScan = () => { state.scanAborted = true; state.scanning = false; render(); };
+window.startScan = startScan;
+window.selectHub = selectHub;
+window.selectProject = selectProject;
+
+window.exportCsv = () => {
+  const rows = [['File name','Path','Revit version','Workshared','Version #','Last modified','Modified by','Size (bytes)']];
+  state.files.forEach(f => rows.push([f.name, f.path||'', f.revitVersion||'', f.isWorkshared?'Yes':'No', f.versionNumber||'', f.modifiedTime||'', f.modifiedBy||'', f.size||'']));
+  const csv = rows.map(r => r.map(c => '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
+  a.download = 'revit-versions-' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+};
+
+render();
+</script>
+</body>
+</html>
