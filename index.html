@@ -237,10 +237,9 @@ thead{overflow:visible}
 const APS = 'https://developer.api.autodesk.com';
 
 // ─── PKCE OAuth config ────────────────────────────────────────────────────────
-// Client ID is intentionally public — safe for browser-based OAuth (PKCE).
-// The client secret is NOT here. The callback URL lock is the security control.
+// No hardcoded client ID — each user supplies their own APS app credentials.
+// This means the app works for any ACC hub without needing a central whitelist.
 const OAUTH = {
-  clientId:    'Vq16zgzmYpzLKuBnpDzAXCG0ZdjOZD5dYW86aewdhFa077hL',
   redirectUri: window.location.origin + window.location.pathname.replace(/\/$/,''),
   authUrl:     'https://developer.api.autodesk.com/authentication/v2/authorize',
   tokenUrl:    'https://developer.api.autodesk.com/authentication/v2/token',
@@ -262,13 +261,15 @@ function randomString(len=64) {
   crypto.getRandomValues(arr);
   return base64urlencode(arr);
 }
-async function startPKCE() {
+async function startPKCE(clientId) {
+  if (!clientId) throw new Error('Please enter your APS Client ID first.');
   const verifier  = randomString(64);
   const challenge = base64urlencode(await sha256(verifier));
   sessionStorage.setItem('pkce_verifier', verifier);
+  sessionStorage.setItem('pkce_client_id', clientId);
   const url = OAUTH.authUrl
     + '?response_type=code'
-    + '&client_id='       + encodeURIComponent(OAUTH.clientId)
+    + '&client_id='       + encodeURIComponent(clientId)
     + '&redirect_uri='    + encodeURIComponent(OAUTH.redirectUri)
     + '&scope='           + encodeURIComponent(OAUTH.scope)
     + '&code_challenge='  + challenge
@@ -277,15 +278,17 @@ async function startPKCE() {
   window.location.href = url;
 }
 async function handleCallback(code) {
-  const verifier = sessionStorage.getItem('pkce_verifier');
-  if (!verifier) throw new Error('No PKCE verifier found — please try signing in again.');
+  const verifier  = sessionStorage.getItem('pkce_verifier');
+  const clientId  = sessionStorage.getItem('pkce_client_id');
+  if (!verifier || !clientId) throw new Error('Session expired — please try signing in again.');
   sessionStorage.removeItem('pkce_verifier');
+  sessionStorage.removeItem('pkce_client_id');
   const r = await fetch(OAUTH.tokenUrl, {
     method: 'POST',
     headers: {'Content-Type':'application/x-www-form-urlencoded'},
     body: new URLSearchParams({
       grant_type:    'authorization_code',
-      client_id:     OAUTH.clientId,
+      client_id:     clientId,
       redirect_uri:  OAUTH.redirectUri,
       code,
       code_verifier: verifier
@@ -296,7 +299,7 @@ async function handleCallback(code) {
     throw new Error(e.errorMessage || e.error_description || r.status+' '+r.statusText);
   }
   const d = await r.json();
-  return d.access_token;
+  return { token: d.access_token, clientId };
 }
 async function fetchUserName(token) {
   try {
@@ -319,6 +322,7 @@ const S = {
   phase:'setup',
   token:localStorage.getItem('rvt_tok')||'',
   uname:localStorage.getItem('rvt_uname')||'',
+  clientId:localStorage.getItem('rvt_client_id')||'',
   hubs:[],hub:null,
   projects:[],
   scanning:false,aborted:false,
@@ -646,47 +650,67 @@ function rSetup() {
       </div>
     </div>
 
-    <!-- RIGHT: connect form -->
+    <!-- RIGHT: setup guide + connect form -->
     <div>
-      <div class="card" style="margin-bottom:12px;padding:20px">
-        <div style="text-align:center;margin-bottom:18px">
-          <div style="width:48px;height:48px;background:var(--blue);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
-            <svg width="26" height="26" viewBox="0 0 16 16" fill="white"><path d="M2 12.5L5.8 3h2.1L11.5 12.5H9.3l-.9-2.5H5.6l-.9 2.5H2zm4.5-7.5L5.2 8.8h2.6L6.5 5z"/></svg>
+      <div class="card" style="margin-bottom:12px;padding:18px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:14px">Connect to your ACC hub</div>
+
+        <!-- Step-by-step setup guide -->
+        <div style="display:flex;flex-direction:column;gap:0;margin-bottom:16px">
+
+          <div style="display:flex;gap:10px;align-items:flex-start;padding-bottom:14px;border-bottom:0.5px solid var(--border)">
+            <div style="width:20px;height:20px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#fff;flex-shrink:0;margin-top:1px">1</div>
+            <div>
+              <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:3px">Create an APS app</div>
+              <div style="font-size:11px;color:var(--muted);line-height:1.65">Go to <a href="https://aps.autodesk.com" target="_blank" style="color:var(--blue-light);text-decoration:none">aps.autodesk.com</a> → My Apps → Create App. Under API Access, make sure <strong style="color:var(--text)">Authentication API</strong> and <strong style="color:var(--text)">Data Management API</strong> are selected. Set the Callback URL to exactly:</div>
+              <div style="margin-top:6px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:6px 10px;font-size:11px;font-family:monospace;color:var(--blue-light);word-break:break-all;user-select:all">${window.location.origin + window.location.pathname.replace(/\/$/,'')}</div>
+            </div>
           </div>
-          <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px">Connect to Autodesk</div>
-          <div style="font-size:12px;color:var(--muted);line-height:1.6">Sign in with your existing Autodesk account — the same one you use for ACC and Forma. No new accounts needed.</div>
+
+          <div style="display:flex;gap:10px;align-items:flex-start;padding:14px 0;border-bottom:0.5px solid var(--border)">
+            <div style="width:20px;height:20px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#fff;flex-shrink:0;margin-top:1px">2</div>
+            <div>
+              <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:3px">Add app to your ACC hub</div>
+              <div style="font-size:11px;color:var(--muted);line-height:1.65">In ACC, go to <strong style="color:var(--text)">Account Admin → Custom Integrations → Add custom integration</strong>. Paste your Client ID and grant hub access. This only needs to be done once per hub.</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:10px;align-items:flex-start;padding-top:14px">
+            <div style="width:20px;height:20px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#fff;flex-shrink:0;margin-top:1px">3</div>
+            <div style="width:100%">
+              <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:3px">Paste your Client ID and sign in</div>
+              <div style="font-size:11px;color:var(--muted);line-height:1.65;margin-bottom:8px">Copy the Client ID from your APS app settings and paste it below. It's saved in your browser so you only do this once.</div>
+              <input id="cid"
+                type="text"
+                placeholder="e.g. aBcDeFgHiJkLmNoPqRsTuVwXyZ012345"
+                value="${esc(S.clientId)}"
+                style="width:100%;height:34px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);color:var(--text);padding:0 11px;font-size:12px;font-family:monospace;outline:none;transition:border-color 0.12s;margin-bottom:8px"
+                oninput="S.clientId=this.value.trim();localStorage.setItem('rvt_client_id',S.clientId)"
+              />
+            </div>
+          </div>
+
         </div>
 
-        <button class="btn btn-blue" id="bc" style="width:100%;justify-content:center;height:40px;font-size:14px;margin-bottom:10px">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 2a5 5 0 110 10A5 5 0 018 3zm-1 3v4l3 1.5-.5-1L9 9V6H7z"/></svg>
+        <button class="btn btn-blue" id="bc" style="width:100%;justify-content:center;height:40px;font-size:13px;margin-bottom:8px">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="white"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm-1 4h2v4H7V5zm0 5h2v2H7v-2z"/></svg>
           Sign in with Autodesk
         </button>
         <button class="btn btn-g" id="bd" style="width:100%;justify-content:center">Try demo data</button>
 
-        <div style="margin-top:16px;padding-top:14px;border-top:0.5px solid var(--border)">
-          <div style="font-size:11px;font-weight:600;color:var(--hint);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px">What happens when you sign in</div>
-          <div style="font-size:12px;color:var(--hint);line-height:1.75;display:flex;flex-direction:column;gap:4px">
-            <div>✓ &nbsp;Opens Autodesk's official login page</div>
-            <div>✓ &nbsp;You approve read-only access to your hub</div>
-            <div>✓ &nbsp;Token is stored in your browser only</div>
-            <div>✓ &nbsp;Token expires automatically after 1 hour</div>
-            <div>✓ &nbsp;No data is sent to any server — all API calls go directly from your browser to Autodesk</div>
-          </div>
-        </div>
-
         <div style="margin-top:14px;padding-top:12px;border-top:0.5px solid var(--border)">
-          <div style="font-size:11px;font-weight:600;color:var(--hint);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px">Deprecation threshold</div>
-          <select id="thresh" style="width:100%;height:34px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);color:var(--text);padding:0 11px;font-size:13px;font-family:inherit;outline:none">
-            ${[2022,2021,2020,2019].map(y=>`<option value="${y}" ${S.threshold===y?'selected':''}>${y} and older flagged as Critical</option>`).join('')}
-          </select>
+          <div style="display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--hint);line-height:1.7">
+            <div>✓ &nbsp;Opens Autodesk's official login page — no password sent to this app</div>
+            <div>✓ &nbsp;<code style="background:var(--surface2);padding:1px 3px;border-radius:3px">data:read</code> scope only — cannot write or modify anything</div>
+            <div>✓ &nbsp;Token stored in your browser only, expires in 1 hour</div>
+            <div>✓ &nbsp;No data sent to any server — calls go directly to Autodesk</div>
+          </div>
         </div>
       </div>
 
       <div style="background:rgba(226,75,74,0.07);border:0.5px solid rgba(226,75,74,0.2);border-radius:var(--r);padding:12px 14px">
         <div style="font-size:11px;font-weight:600;color:#f5a09f;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.07em">Use at your own risk</div>
-        <div style="font-size:11px;color:rgba(245,160,159,0.75);line-height:1.75">
-          This is an open-source tool built by an individual Autodesk employee, not an official Autodesk product. It has not undergone a security audit or Autodesk's internal app review process. The token scope is <code style="background:rgba(0,0,0,0.2);padding:1px 3px;border-radius:3px">data:read</code> only — the app cannot write, modify, or delete anything in your ACC hub. Source code is publicly available at <a href="https://github.com/tsb2127/revit-version-checker" target="_blank" style="color:inherit;text-decoration:underline">GitHub</a> for your IT team to review. By signing in you accept these terms.
-        </div>
+        <div style="font-size:11px;color:rgba(245,160,159,0.75);line-height:1.75">This is an open-source tool built by an individual Autodesk employee, not an official Autodesk product. It has not undergone a security audit or Autodesk's internal app review process. Scope is <code style="background:rgba(0,0,0,0.2);padding:1px 3px;border-radius:3px">data:read</code> only. Source code is public at <a href="https://github.com/tsb2127/revit-version-checker" target="_blank" style="color:inherit;text-decoration:underline">GitHub</a> for your IT team to review. By signing in you accept these terms.</div>
       </div>
     </div>
 
@@ -963,7 +987,13 @@ function render() {
 
 function bind() {
   const bc=document.getElementById('bc');
-  if(bc)bc.onclick=()=>startPKCE();
+  if(bc)bc.onclick=()=>{
+    const cid = (document.getElementById('cid')?.value||'').trim();
+    if(!cid){S.error='Please enter your APS Client ID first.';render();return;}
+    S.clientId=cid;
+    localStorage.setItem('rvt_client_id',cid);
+    startPKCE(cid);
+  };
   const bd=document.getElementById('bd');if(bd)bd.onclick=demo;
   const thresh=document.getElementById('thresh');
   if(thresh)thresh.onchange=()=>{S.threshold=parseInt(thresh.value);localStorage.setItem('rvt_thresh',S.threshold);};
@@ -1016,12 +1046,14 @@ window.exportCsv = () => {
     const mc = document.getElementById('mc');
     if (mc) mc.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:40px 0;color:var(--muted);font-size:13px"><span class="spinner"></span> Completing sign-in…</div>`;
     try {
-      const token = await handleCallback(code);
+      const { token, clientId } = await handleCallback(code);
       const name  = await fetchUserName(token);
-      S.token = token;
-      S.uname = name || 'Autodesk User';
-      localStorage.setItem('rvt_tok',   token);
-      localStorage.setItem('rvt_uname', S.uname);
+      S.token    = token;
+      S.clientId = clientId;
+      S.uname    = name || 'Autodesk User';
+      localStorage.setItem('rvt_tok',       token);
+      localStorage.setItem('rvt_client_id', clientId);
+      localStorage.setItem('rvt_uname',     S.uname);
       render();
       loadHubs();
     } catch(e) {
