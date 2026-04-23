@@ -1,6 +1,6 @@
 # Revit Version Checker
 
-A free, zero-backend hub-level dashboard for scanning Revit model versions across all projects in an Autodesk Forma / ACC hub at once.
+A free, zero-backend hub-level dashboard for scanning Revit model versions across all projects in an Autodesk Forma / ACC hub at once. Test it out here - https://tsb2127.github.io/revit-version-checker/ 
 
 ![Screenshot](screenshot.png)
 
