@@ -236,6 +236,78 @@ thead{overflow:visible}
 <script>
 const APS = 'https://developer.api.autodesk.com';
 
+// ─── PKCE OAuth config ────────────────────────────────────────────────────────
+// Client ID is intentionally public — safe for browser-based OAuth (PKCE).
+// The client secret is NOT here. The callback URL lock is the security control.
+const OAUTH = {
+  clientId:    'Vq16zgzmYpzLKuBnpDzAXCG0ZdjOZD5dYW86aewdhFa077hL',
+  redirectUri: window.location.origin + window.location.pathname.replace(/\/$/,''),
+  authUrl:     'https://developer.api.autodesk.com/authentication/v2/authorize',
+  tokenUrl:    'https://developer.api.autodesk.com/authentication/v2/token',
+  scope:       'data:read'
+};
+
+// PKCE helpers
+async function sha256(plain) {
+  const enc = new TextEncoder().encode(plain);
+  const hash = await crypto.subtle.digest('SHA-256', enc);
+  return hash;
+}
+function base64urlencode(buf) {
+  return btoa(String.fromCharCode(...new Uint8Array(buf)))
+    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function randomString(len=64) {
+  const arr = new Uint8Array(len);
+  crypto.getRandomValues(arr);
+  return base64urlencode(arr);
+}
+async function startPKCE() {
+  const verifier  = randomString(64);
+  const challenge = base64urlencode(await sha256(verifier));
+  sessionStorage.setItem('pkce_verifier', verifier);
+  const url = OAUTH.authUrl
+    + '?response_type=code'
+    + '&client_id='       + encodeURIComponent(OAUTH.clientId)
+    + '&redirect_uri='    + encodeURIComponent(OAUTH.redirectUri)
+    + '&scope='           + encodeURIComponent(OAUTH.scope)
+    + '&code_challenge='  + challenge
+    + '&code_challenge_method=S256'
+    + '&nonce='           + randomString(16);
+  window.location.href = url;
+}
+async function handleCallback(code) {
+  const verifier = sessionStorage.getItem('pkce_verifier');
+  if (!verifier) throw new Error('No PKCE verifier found — please try signing in again.');
+  sessionStorage.removeItem('pkce_verifier');
+  const r = await fetch(OAUTH.tokenUrl, {
+    method: 'POST',
+    headers: {'Content-Type':'application/x-www-form-urlencoded'},
+    body: new URLSearchParams({
+      grant_type:    'authorization_code',
+      client_id:     OAUTH.clientId,
+      redirect_uri:  OAUTH.redirectUri,
+      code,
+      code_verifier: verifier
+    })
+  });
+  if (!r.ok) {
+    const e = await r.json().catch(()=>({}));
+    throw new Error(e.errorMessage || e.error_description || r.status+' '+r.statusText);
+  }
+  const d = await r.json();
+  return d.access_token;
+}
+async function fetchUserName(token) {
+  try {
+    const r = await fetch('https://developer.api.autodesk.com/userprofile/v1/users/@me',
+      {headers:{Authorization:'Bearer '+token}});
+    if (!r.ok) return '';
+    const d = await r.json();
+    return (d.firstName||'') + (d.lastName ? ' '+d.lastName : '');
+  } catch(e) { return ''; }
+}
+
 // Extension types that indicate a Revit Cloud Workshared (C4R) model
 const C4R_TYPES = [
   'versions:autodesk.bim360:C4RModel',
@@ -576,33 +648,44 @@ function rSetup() {
 
     <!-- RIGHT: connect form -->
     <div>
-      <div class="alert a-info" style="margin-bottom:12px">
-        <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M8 7v5M8 5v1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-        <span style="font-size:12px">Paste a 3-legged APS token with <code style="background:rgba(0,0,0,0.2);padding:1px 4px;border-radius:3px;font-size:10px">data:read</code> scope. Get one at <a href="https://aps.autodesk.com" target="_blank" style="color:inherit;text-decoration:underline">aps.autodesk.com</a>.</span>
-      </div>
-      <div class="card" style="margin-bottom:0">
-        <div style="font-size:13px;font-weight:600;margin-bottom:14px">Connect to Autodesk</div>
-        <div class="field"><label>Access token (Bearer)</label>
-          <input id="t" type="password" placeholder="eyJhbGciOiJSUzI1NiIs..." value="${esc(S.token)}" style="font-family:monospace;font-size:11px"/></div>
-        <div class="field"><label>Your name (optional)</label>
-          <input id="n" type="text" placeholder="Jane Smith" value="${esc(S.uname)}"/></div>
-        <div class="field"><label>Deprecation threshold</label>
-          <select id="thresh">
-            ${[2022,2021,2020,2019].map(y=>`<option value="${y}" ${S.threshold===y?'selected':''}>${y} and older</option>`).join('')}
+      <div class="card" style="margin-bottom:12px;padding:20px">
+        <div style="text-align:center;margin-bottom:18px">
+          <div style="width:48px;height:48px;background:var(--blue);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
+            <svg width="26" height="26" viewBox="0 0 16 16" fill="white"><path d="M2 12.5L5.8 3h2.1L11.5 12.5H9.3l-.9-2.5H5.6l-.9 2.5H2zm4.5-7.5L5.2 8.8h2.6L6.5 5z"/></svg>
+          </div>
+          <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px">Connect to Autodesk</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.6">Sign in with your existing Autodesk account — the same one you use for ACC and Forma. No new accounts needed.</div>
+        </div>
+
+        <button class="btn btn-blue" id="bc" style="width:100%;justify-content:center;height:40px;font-size:14px;margin-bottom:10px">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 2a5 5 0 110 10A5 5 0 018 3zm-1 3v4l3 1.5-.5-1L9 9V6H7z"/></svg>
+          Sign in with Autodesk
+        </button>
+        <button class="btn btn-g" id="bd" style="width:100%;justify-content:center">Try demo data</button>
+
+        <div style="margin-top:16px;padding-top:14px;border-top:0.5px solid var(--border)">
+          <div style="font-size:11px;font-weight:600;color:var(--hint);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px">What happens when you sign in</div>
+          <div style="font-size:12px;color:var(--hint);line-height:1.75;display:flex;flex-direction:column;gap:4px">
+            <div>✓ &nbsp;Opens Autodesk's official login page</div>
+            <div>✓ &nbsp;You approve read-only access to your hub</div>
+            <div>✓ &nbsp;Token is stored in your browser only</div>
+            <div>✓ &nbsp;Token expires automatically after 1 hour</div>
+            <div>✓ &nbsp;No data is sent to any server — all API calls go directly from your browser to Autodesk</div>
+          </div>
+        </div>
+
+        <div style="margin-top:14px;padding-top:12px;border-top:0.5px solid var(--border)">
+          <div style="font-size:11px;font-weight:600;color:var(--hint);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px">Deprecation threshold</div>
+          <select id="thresh" style="width:100%;height:34px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);color:var(--text);padding:0 11px;font-size:13px;font-family:inherit;outline:none">
+            ${[2022,2021,2020,2019].map(y=>`<option value="${y}" ${S.threshold===y?'selected':''}>${y} and older flagged as Critical</option>`).join('')}
           </select>
         </div>
-        <div class="btn-row" style="margin-top:6px">
-          <button class="btn btn-blue" id="bc" style="flex:1;justify-content:center">Connect &amp; scan hub</button>
-        </div>
-        <div class="btn-row" style="margin-top:7px">
-          <button class="btn btn-g" id="bd" style="flex:1;justify-content:center">Try demo data</button>
-          ${S.token?`<button class="btn btn-g btn-sm" id="bclr">Clear token</button>`:''}
-        </div>
-        <div style="margin-top:14px;padding-top:12px;border-top:0.5px solid var(--border)">
-          <div style="font-size:11px;color:var(--hint);line-height:1.7">
-            <div style="margin-bottom:4px">Token is stored in your browser's localStorage and expires after 1 hour.</div>
-            <div>No data leaves your browser — all API calls are made directly to Autodesk from your machine.</div>
-          </div>
+      </div>
+
+      <div style="background:rgba(226,75,74,0.07);border:0.5px solid rgba(226,75,74,0.2);border-radius:var(--r);padding:12px 14px">
+        <div style="font-size:11px;font-weight:600;color:#f5a09f;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.07em">Use at your own risk</div>
+        <div style="font-size:11px;color:rgba(245,160,159,0.75);line-height:1.75">
+          This is an open-source tool built by an individual Autodesk employee, not an official Autodesk product. It has not undergone a security audit or Autodesk's internal app review process. The token scope is <code style="background:rgba(0,0,0,0.2);padding:1px 3px;border-radius:3px">data:read</code> only — the app cannot write, modify, or delete anything in your ACC hub. Source code is publicly available at <a href="https://github.com/tsb2127/revit-version-checker" target="_blank" style="color:inherit;text-decoration:underline">GitHub</a> for your IT team to review. By signing in you accept these terms.
         </div>
       </div>
     </div>
@@ -845,7 +928,10 @@ function rAbout() {
 // ─── MAIN RENDER ─────────────────────────────────────────────────────────────
 function render() {
   document.getElementById('tr').innerHTML = S.uname
-    ? `<div class="user-chip"><div class="ava">${S.uname.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase()}</div><span class="uname">${esc(S.uname)}</span></div>`
+    ? `<div style="display:flex;align-items:center;gap:8px">
+        <div class="user-chip"><div class="ava">${S.uname.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase()}</div><span class="uname">${esc(S.uname)}</span></div>
+        <button id="b-signout" class="btn btn-g btn-sm" style="font-size:11px">Sign out</button>
+       </div>`
     : '';
 
   const sc = document.getElementById('sctx');
@@ -877,19 +963,17 @@ function render() {
 
 function bind() {
   const bc=document.getElementById('bc');
-  if(bc)bc.onclick=()=>{
-    S.token=document.getElementById('t').value.trim();
-    S.uname=document.getElementById('n').value.trim()||'ACC User';
-    S.threshold=parseInt(document.getElementById('thresh').value);
-    if(!S.token){S.error='Please enter an access token.';render();return}
-    localStorage.setItem('rvt_tok',S.token);
-    localStorage.setItem('rvt_uname',S.uname);
-    localStorage.setItem('rvt_thresh',S.threshold);
-    loadHubs();
-  };
+  if(bc)bc.onclick=()=>startPKCE();
   const bd=document.getElementById('bd');if(bd)bd.onclick=demo;
-  const bclr=document.getElementById('bclr');
-  if(bclr)bclr.onclick=()=>{localStorage.removeItem('rvt_tok');localStorage.removeItem('rvt_uname');S.token='';S.uname='';render()};
+  const thresh=document.getElementById('thresh');
+  if(thresh)thresh.onchange=()=>{S.threshold=parseInt(thresh.value);localStorage.setItem('rvt_thresh',S.threshold);};
+  const bso=document.getElementById('b-signout');
+  if(bso)bso.onclick=()=>{
+    localStorage.removeItem('rvt_tok');
+    localStorage.removeItem('rvt_uname');
+    S.token='';S.uname='';S.hub=null;S.projects=[];S.phase='setup';
+    render();
+  };
 }
 
 window.navTo    = k => { S.phase=k==='scan'?(S.hub?'dash':'setup'):k; S.error=null; render(); };
@@ -913,7 +997,48 @@ window.exportCsv = () => {
   a.click();
 };
 
-render();
+// ─── OAUTH CALLBACK HANDLER ───────────────────────────────────────────────────
+(async function initAuth() {
+  const params = new URLSearchParams(window.location.search);
+  const code   = params.get('code');
+  const error  = params.get('error');
+
+  if (error) {
+    S.error = 'Sign-in was cancelled or failed: ' + (params.get('error_description') || error);
+    window.history.replaceState({}, '', window.location.pathname);
+    render();
+    return;
+  }
+
+  if (code) {
+    window.history.replaceState({}, '', window.location.pathname);
+    S.phase = 'setup';
+    const mc = document.getElementById('mc');
+    if (mc) mc.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:40px 0;color:var(--muted);font-size:13px"><span class="spinner"></span> Completing sign-in…</div>`;
+    try {
+      const token = await handleCallback(code);
+      const name  = await fetchUserName(token);
+      S.token = token;
+      S.uname = name || 'Autodesk User';
+      localStorage.setItem('rvt_tok',   token);
+      localStorage.setItem('rvt_uname', S.uname);
+      render();
+      loadHubs();
+    } catch(e) {
+      S.error = 'Sign-in failed: ' + e.message;
+      render();
+    }
+    return;
+  }
+
+  if (S.token && S.token !== 'demo') {
+    render();
+    loadHubs();
+    return;
+  }
+
+  render();
+})();
 
 // ─── GLOBAL TOOLTIP ──────────────────────────────────────────────────────────
 // Single fixed-position tooltip div that follows the mouse.
