@@ -50,7 +50,7 @@ No build step needed — it's a single HTML file.
 
 ```bash
 # Clone the repo
-git clone https://github.com/YOUR_USERNAME/revit-version-checker.git
+git clone https://github.com/tsb2127/revit-version-checker.git
 cd revit-version-checker
 
 # Open directly in your browser
@@ -68,7 +68,7 @@ python3 -m http.server 8080
 1. Push this repo to GitHub
 2. Go to **Settings → Pages**
 3. Set **Source** to `Deploy from a branch` → `main` → `/ (root)`
-4. Your app will be live at `https://YOUR_USERNAME.github.io/revit-version-checker`
+4. Your app will be live at `https://tsb2127.github.io/revit-version-checker`
 
 No CI, no build pipeline needed.
 
