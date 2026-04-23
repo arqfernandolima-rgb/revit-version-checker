@@ -8,7 +8,7 @@ A free, zero-backend hub-level dashboard for scanning Revit model versions acros
 
 ## Why this exists
 
-Version visibility has been one of the most common requests from ACC customers for years — and the product team still hasn't shipped it natively. With Autodesk announcing deprecation of cloud worksharing access for older Revit versions ([FY27 Q3/Q4 announcement](https://forums.autodesk.com/t5/revit-cloud-worksharing-forum/important-update-deprecation-of-revit-cloud-models-access-for/td-p/14093972)), teams need to know exactly where they stand across all projects at once — not one folder at a time.
+Version visibility has been one of the most common requests from ACC customers for years — and the product team hasn't shipped it natively. With Autodesk announcing deprecation of cloud worksharing access for older Revit versions ([FY27 Q3/Q4 announcement](https://forums.autodesk.com/t5/revit-cloud-worksharing-forum/important-update-deprecation-of-revit-cloud-models-access-for/td-p/14093972)), teams need to know exactly where they stand across all projects at once — not one folder at a time.
 
 ---
 
@@ -39,7 +39,8 @@ Detection is done via `attributes.extension.type` — if it contains `C4RModel`,
 - **Search + status filter** — find projects by name or filter to Critical / Outdated / Current
 - **Direct ACC links** — each project row links straight to that project in ACC
 - **CSV export** — exports project summary and full file detail, with at-risk flag per file
-- **Saved token** — stores your token in `localStorage` so you don't re-enter every session
+- **One-click sign-in** — PKCE OAuth via Autodesk's official login page, no tokens to copy
+- **Saved Client ID** — stored in your browser so you only enter it once
 - **Demo mode** — try the full UI without an Autodesk account
 
 ---
@@ -75,21 +76,25 @@ All calls use a 3-legged token. No server-side component is needed — every API
 
 ## Getting started
 
-### Prerequisites
+Each user connects using their own APS app credentials. This means the app works for any ACC hub without a central whitelist — you control your own access.
 
-- An [APS app](https://aps.autodesk.com) with `data:read` scope
-- A 3-legged OAuth Bearer token for your ACC user
-- Access to at least one ACC / Forma hub
+### What you need
 
-### Get a token
+1. **An APS app** — create one at [aps.autodesk.com](https://aps.autodesk.com) (free)
+2. **Data Management API + Authentication API** enabled on that app
+3. **Your GitHub Pages URL set as the Callback URL** in the app settings
+4. **Your app added as a Custom Integration** in ACC Account Admin
 
-Follow the [APS 3-legged token tutorial](https://aps.autodesk.com/en/docs/oauth/v2/tutorials/get-3-legged-token) or use Postman with the `/authentication/v2/token` endpoint. Scope required: `data:read`.
-
-Tokens expire after 1 hour. If the app stops loading data, generate a fresh one.
+Full step-by-step instructions are built into the app's connect screen.
 
 ### Use the hosted version
 
 [**tsb2127.github.io/revit-version-checker**](https://tsb2127.github.io/revit-version-checker)
+
+1. Follow the 3-step setup guide on the connect screen
+2. Paste your APS Client ID (saved in your browser after first use)
+3. Click **Sign in with Autodesk** — logs in via Autodesk's official login page
+4. Hub scan starts automatically
 
 ### Run locally
 
@@ -100,29 +105,45 @@ open index.html        # Mac
 start index.html       # Windows
 ```
 
-No build step, no dependencies, no Node required.
+The callback URL shown in the setup guide will update automatically to match wherever you're running the app.
 
 ---
 
-## Deploying your own copy to GitHub Pages
+## How sign-in works (PKCE OAuth)
 
-1. Fork or push to a GitHub repo
-2. Go to **Settings → Pages**
-3. Set source to `Deploy from a branch` → `main` → `/ (root)`
-4. Live at `https://YOUR_USERNAME.github.io/revit-version-checker`
+The app uses the **PKCE (Proof Key for Code Exchange)** OAuth 2.0 flow — the industry standard for browser-based apps with no backend server. There is no hardcoded client ID in the code. Each user brings their own APS app, which means:
+
+- No central whitelist required — your APS app only needs to be added to your own hub
+- You control exactly which hubs can be accessed by your app
+- If you stop using the app, simply remove the Custom Integration from ACC
+
+**The flow step by step:**
+
+1. You enter your Client ID and click Sign in
+2. The app generates a random one-time `code_verifier` stored only in your browser's `sessionStorage`
+3. Your browser redirects to Autodesk's official login page
+4. You log in and approve `data:read` access
+5. Autodesk redirects back with a short-lived `code` in the URL
+6. The app exchanges that code + `code_verifier` for an access token — no client secret needed
+7. Token is stored in `localStorage`, expires after 1 hour
+
+Your Client ID is saved in your browser so you only enter it once.
 
 ---
 
-## Usage
+## ⚠️ Use at your own risk
 
-1. Paste your APS Bearer token and click **Connect & scan hub**
-2. If you have multiple hubs, select one — single-hub accounts skip this step automatically
-3. The app scans all projects recursively. Watch the progress bar as each project is processed
-4. The dashboard shows every project with its RCW version, file counts, at-risk count, and status
-5. Click any project row to expand and see individual RCW and RC files
-6. Use the threshold bar to change the deprecation cutoff year (default: 2021)
-7. Filter to **Critical** to see only at-risk projects, then click the ACC link to go upgrade them
-8. Click **Export CSV** to download a full report with project summary and per-file detail
+**This is not an official Autodesk product.** It is an open-source tool built by an individual Autodesk employee in a personal capacity. Please read this before using it or sharing it with customers:
+
+- This app has **not** undergone a security audit, penetration test, or Autodesk's internal application review process
+- The token scope is `data:read` only — the app **cannot** write, modify, delete, or change anything in your ACC hub
+- No data is sent to any third-party server — all API calls go directly from your browser to Autodesk's servers
+- Your token is stored in your browser's `localStorage` and never transmitted anywhere except Autodesk's own API endpoints
+- The full source code is publicly available at this repository — your IT or security team can review exactly what the app does before use
+- Tokens expire after 1 hour and must be refreshed by signing in again
+- By using this app you accept that it is provided as-is with no warranty, support, or liability implied by Autodesk
+
+If your organisation has strict policies about third-party OAuth applications accessing ACC data, check with your IT or security team before use.
 
 ---
 
@@ -141,14 +162,16 @@ No build step, no dependencies, no Node required.
 ## Limitations
 
 - `revitProjectVersion` is only populated for **Revit Cloud Workshared** models. RC (non-workshared) uploads do not have a version lock and are not counted toward risk.
-- Token must be obtained externally — no built-in OAuth login flow yet (see roadmap).
 - Large hubs with hundreds of projects and thousands of files will make many API calls and may take several minutes to scan. The APS Data Management API is free with no per-call cost.
+- Each user needs their own APS app (free to create) registered as a **Desktop, Mobile, Single-Page App** type, with the app added as a Custom Integration in their ACC hub. The connect screen walks through this in 3 steps.
+- Tokens expire after 1 hour — sign in again when prompted.
+- The app requires the APS app to be of type **Single-Page App** (not Traditional Web App) to support PKCE. Traditional Web App types will fail authentication.
 
 ---
 
 ## Roadmap
 
-- [ ] Built-in OAuth login (PKCE) — one-click "Sign in with Autodesk", no manual token copy
+- [x] ~~Built-in OAuth login (PKCE)~~ — shipped
 - [ ] Upgrade deadline countdown — days remaining per project based on Autodesk's FY27 timeline
 - [ ] Required version enforcement — set a hub standard and surface any project that deviates
 - [ ] Scan history — persist results so you can compare hub health week over week
@@ -159,7 +182,7 @@ Contributions welcome — open an issue or PR.
 
 ## Built by
 
-Tanmay Bhalerao — Senior Account Technical Lead at Autodesk, working with AEC teams across the US and India. Built this because customers kept asking for it and it didn't exist. Not a software engineer by background — proof that the APS APIs are approachable for anyone willing to experiment.
+Tanmay Bhalerao — Senior Account Technical Lead at Autodesk, working with AEC customers across the US. Built this because customers kept asking for it and it didn't exist. Not a software engineer by background — proof that the APS APIs are approachable for anyone willing to experiment.
 
 ---
 
