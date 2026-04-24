@@ -661,8 +661,8 @@ function rSetup() {
           <div style="display:flex;gap:10px;align-items:flex-start;padding-bottom:14px;border-bottom:0.5px solid var(--border)">
             <div style="width:20px;height:20px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#fff;flex-shrink:0;margin-top:1px">1</div>
             <div>
-              <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:3px">Create an APS app</div>
-              <div style="font-size:11px;color:var(--muted);line-height:1.65">Go to <a href="https://aps.autodesk.com" target="_blank" style="color:var(--blue-light);text-decoration:none">aps.autodesk.com</a> → My Apps → Create App. Under API Access, make sure <strong style="color:var(--text)">Authentication API</strong> and <strong style="color:var(--text)">Data Management API</strong> are selected. Set the Callback URL to exactly:</div>
+              <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:3px">Create a Single-Page APS app</div>
+              <div style="font-size:11px;color:var(--muted);line-height:1.65">Go to <a href="https://aps.autodesk.com" target="_blank" style="color:var(--blue-light);text-decoration:none">aps.autodesk.com</a> → My Apps → Create App. Select <strong style="color:var(--text)">Desktop, Mobile, Single-Page App</strong> as the app type — not Traditional Web App. This is required for the sign-in flow to work. Then set the Callback URL to exactly:</div>
               <div style="margin-top:6px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:6px 10px;font-size:11px;font-family:monospace;color:var(--blue-light);word-break:break-all;user-select:all">${window.location.origin + window.location.pathname.replace(/\/$/,'')}</div>
             </div>
           </div>
