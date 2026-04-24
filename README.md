@@ -1,6 +1,6 @@
 # Revit Version Checker
 
-A free, zero-backend hub-level dashboard for scanning Revit model versions across all projects in an Autodesk Forma / ACC hub at once. Test it out here - https://tsb2127.github.io/revit-version-checker/ 
+A free, zero-backend hub-level dashboard for scanning Revit model versions across all projects in an Autodesk Forma / ACC hub at once.
 
 ![Screenshot](screenshot.png)
 
@@ -8,7 +8,7 @@ A free, zero-backend hub-level dashboard for scanning Revit model versions acros
 
 ## Why this exists
 
-Version visibility has been one of the most common requests from ACC customers for years — and the product team hasn't shipped it natively. With Autodesk announcing deprecation of cloud worksharing access for older Revit versions ([FY27 Q3/Q4 announcement](https://forums.autodesk.com/t5/revit-cloud-worksharing-forum/important-update-deprecation-of-revit-cloud-models-access-for/td-p/14093972)), teams need to know exactly where they stand across all projects at once — not one folder at a time.
+Version visibility has been one of the most common requests from ACC customers for years — and the product team still hasn't shipped it natively. With Autodesk announcing deprecation of cloud worksharing access for older Revit versions ([FY27 Q3/Q4 announcement](https://forums.autodesk.com/t5/revit-cloud-worksharing-forum/important-update-deprecation-of-revit-cloud-models-access-for/td-p/14093972)), teams need to know exactly where they stand across all projects at once — not one folder at a time.
 
 ---
 
@@ -80,10 +80,9 @@ Each user connects using their own APS app credentials. This means the app works
 
 ### What you need
 
-1. **An APS app** — create one at [aps.autodesk.com](https://aps.autodesk.com) (free)
-2. **Data Management API + Authentication API** enabled on that app
-3. **Your GitHub Pages URL set as the Callback URL** in the app settings
-4. **Your app added as a Custom Integration** in ACC Account Admin
+1. **An APS app** — create one at [aps.autodesk.com](https://aps.autodesk.com) (free). Select **Desktop, Mobile, Single-Page App** as the type — not Traditional Web App
+2. **Your GitHub Pages URL set as the Callback URL** in the app settings
+3. **Your app added as a Custom Integration** in ACC Account Admin
 
 Full step-by-step instructions are built into the app's connect screen.
 
@@ -182,7 +181,7 @@ Contributions welcome — open an issue or PR.
 
 ## Built by
 
-Tanmay Bhalerao — Senior Account Technical Lead at Autodesk, working with AEC customers across the US. Built this because customers kept asking for it and it didn't exist. Not a software engineer by background — proof that the APS APIs are approachable for anyone willing to experiment.
+Tanmay Bhalerao — Senior Account Technical Lead at Autodesk, working with AEC teams across the US and India. Built this because customers kept asking for it and it didn't exist. Not a software engineer by background — proof that the APS APIs are approachable for anyone willing to experiment.
 
 ---
 
