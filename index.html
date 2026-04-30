@@ -231,9 +231,9 @@ tr.risk-row:hover{background:rgba(220,38,38,0.05)}
 </div>
 <script>
 // ─── VERSION ──────────────────────────────────────────────────────────────────
-const VERSION='1.2.3';
+const VERSION='1.2.4';
 const RELEASE_DATE='2026-05-01';
-const CHANGELOG_URL='https://github.com/tsb2127/revit-version-checker/releases/tag/v1.2.3';
+const CHANGELOG_URL='https://github.com/tsb2127/revit-version-checker/releases/tag/v1.2.4';
 
 const APS='https://developer.api.autodesk.com';
 const OAUTH={
@@ -822,23 +822,15 @@ async function scanProject(proj,hub){
     const batchSubFolders=[];
 
     await Promise.all(batch.map(async({id:folderId,path:pathLabel,depth})=>{
-      // Use ?include=version to get version data inline — eliminates Pass 2 calls
-      // for items that have version data embedded. Falls back to Pass 2 for the rest.
-      let items=[],included=[];
-      try{
-        const d=await apiAllWithInclude('/data/v1/projects/'+proj.id+'/folders/'+folderId+'/contents');
-        items=d.items||[];
-        included=d.included||[];
-      }catch(e){if(e.status===403)proj.skippedFolders++;return;}
+      // Plain folder contents fetch — no ?include=version.
+      // ?include=version forces APS to look up version metadata for ALL items
+      // server-side (PDFs, DWGs, images…) making responses exceed the 30s timeout.
+      // Classification happens in Pass 2 where we only call versions for .rvt files.
+      let items=[];
+      try{items=await apiAll('/data/v1/projects/'+proj.id+'/folders/'+folderId+'/contents');}
+      catch(e){if(e.status===403)proj.skippedFolders++;return;}
 
-      // Build version lookup from included data (keyed by item URN)
-      const inlineVersion=new Map();
-      for(const v of included){
-        const itemId=v.relationships?.item?.data?.id;
-        if(itemId)inlineVersion.set(itemId,v);
-      }
-
-      // Subfolders — collected into batchSubFolders, sorted + unshifted after batch
+      // Subfolders
       if(depth<MAX_FOLDER_DEPTH){
         for(const f of items.filter(i=>i.type==='folders')){
           if(S.aborted)break;
@@ -850,37 +842,9 @@ async function scanProject(proj,hub){
         }
       }
 
-      // Collect .rvt items — try to classify inline, fall back to allRvtItems (Pass 2)
+      // Collect .rvt items for Pass 2 classification
       for(const item of items.filter(isRvt)){
-        const iv=inlineVersion.get(item.id);
-        if(iv){
-          const ext=iv.attributes?.extension?.type||'';
-          const isC4R=ext.toLowerCase().includes('c4r');
-          const rv=iv.attributes?.extension?.data?.revitProjectVersion;
-          const modTime=iv.attributes?.lastModifiedTime||item.attributes?.lastModifiedTime||null;
-          const modBy=iv.attributes?.lastModifiedUserName||null;
-          let version=rv?String(rv):null;
-          let inferredVersion=false;
-          if(!version&&isC4R&&modTime){
-            const modYear=new Date(modTime).getFullYear();
-            // Infer across all classifiable tiers from file date:
-            //   < 2020 or ≤ threshold  → Critical  (pre-modern BIM 360 era, or at threshold)
-            //   threshold+1 or +2      → Outdated  (e.g. 2022/2023 with threshold=2021)
-            //   > threshold+2          → too risky to call "Current" without proof — leave null
-            if(modYear<=S.threshold+2){version=String(modYear);inferredVersion=true;}
-          }
-          const fname=item.attributes?.displayName||item.attributes?.name||'';
-          if(isSystemName(fname)){
-            proj.systemFiles.push({id:item.id,name:fname,path:pathLabel,modTime});
-            return;
-          }
-          const modelGuid=iv.attributes?.extension?.data?.modelGuid||null;
-          const f={id:item.id,name:fname,path:pathLabel,version,isC4R,modTime,modBy,inferredVersion,modelGuid};
-          if(isC4R)proj.c4rFiles.push(f);else proj.cloudFiles.push(f);
-        }else{
-          // No inline version data — queue for Pass 2 version call
-          allRvtItems.push({item,path:pathLabel});
-        }
+        allRvtItems.push({item,path:pathLabel});
       }
     }));
 
