@@ -6,6 +6,32 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.2.3] — 2026-05-01
+
+### Changed
+- **Setup page redesigned** — two fully self-contained method cards (Option A: Sign in with Autodesk; Option B: Use Client Secret), each with their own step-by-step instructions, their own Client ID field, and their own connect button. Eliminates the previous ambiguity where a shared Client ID field sat between two different flows separated by an "or" divider. Each card explains the correct APS app type for that flow, the Callback URL requirement, and the Hub Admin registration step. Client ID fields sync between cards so users don't need to retype if they switch methods.
+
+---
+
+## [1.2.2] — 2026-05-01
+
+### Added
+- **`hidden: true` item filter** — APS DM API folder contents include system/derivative items with `attributes.hidden = true` that are invisible in the ACC web UI. These are now filtered in `isRvt()` before filename or type checks. Zero false-negative risk: ACC itself marks them as non-user-facing.
+- **GUID/system filename detection (`isSystemName`)** — detects four patterns: full UUID (8-4-4-4-12), 32-char hex, `vf.`-prefixed URN fragments, and 20+ char hex strings. Covers Design Automation output files, Desktop Connector conflict backups, and internal storage objects. These files are not silently skipped — they go to `proj.systemFiles[]` and appear in the expanded row as: *"N auto-named files found — not counted toward risk."*
+- **`modelGuid` deduplication in `deriveProject()`** — Design Collaboration creates copies of the same model in multiple folders (working copy, Shared folder, consumed package). All copies share the same `modelGuid` in `extension.data`. `deriveProject()` now builds a Map keyed by `modelGuid`, keeping the copy with the lowest (worst) version for risk assessment. `c4rCount` and `atRiskCount` operate on `uniqueC4RFiles` (deduplicated), not the raw `c4rFiles` array.
+- **Copy annotation** — files sharing a `modelGuid` with another file in the same project are marked `isCopy: true` and show a grey **copy** badge in the expanded file table.
+- **`c4rCopyCount` field** — stored on the project; shown in an informational purple banner in the expanded row: *"3 unique RCW models (5 additional copies — risk metrics use unique model count)."*
+- **PDF accuracy caveats** — copy count and system file count added as bullet lines in the accuracy statement.
+- **Hub Admin terminology** — all occurrences of "Account Admin" updated to "Hub Admin" throughout the app and docs to match the current Autodesk platform terminology.
+- **Live page link in README** — `https://arqfernandolima-rgb.github.io/revit-version-checker/` added prominently below the badge row.
+
+### Changed
+- **`proj.systemFiles[]`** — new bucket on the project object; initialised alongside `c4rFiles`, `cloudFiles`, `failedFiles`
+- **`proj.uniqueC4RFiles[]`** — deduplicated C4R file list; used by `atRiskCount` and `c4rCount`
+- **`proj.c4rCopyCount`** — count of Design Collaboration copies excluded from unique count
+
+---
+
 ## [1.2.1] — 2026-05-01
 
 ### Changed

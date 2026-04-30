@@ -1,9 +1,7 @@
 # Revit Version Checker
 
-[![Version](https://img.shields.io/badge/version-1.2.1-blue)](https://github.com/tsb2127/revit-version-checker/releases/tag/v1.2.1)
+[![Version](https://img.shields.io/badge/version-1.2.3-blue)](https://github.com/tsb2127/revit-version-checker/releases/tag/v1.2.3)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-
-Link: https://arqfernandolima-rgb.github.io/revit-version-checker/
 
 **Scan every project in an Autodesk Forma / ACC hub for Revit cloud worksharing deprecation risk — no server required.**
 
