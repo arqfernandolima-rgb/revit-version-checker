@@ -6,6 +6,20 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.2.0] — 2026-05-01
+
+### Added
+- **Parallel folder fetches (`CONCURRENCY.FOLDER_FETCHES=3`)** — BFS now processes 3 folders simultaneously per project using `Promise.all` batch processing. Each iteration pulls up to 3 items from the priority queue, fetches their contents in parallel, collects subfolder discoveries, re-sorts by priority, and prepends to the queue. Safe for JS's single-threaded event model: post-await synchronous loops execute atomically so `visitedFolders` updates are race-free. Reduces folder-walk time by ~2-3x on typical projects.
+- **`?include=version` inline classification** — Folder contents calls now append `?include=version` to embed each item's latest version data directly in the response. When the inline version data includes `extension.type` and `extension.data.revitProjectVersion`, the item is classified immediately without a separate version API call — eliminating Pass 2 for those items entirely. Items with no inline version data fall back to the existing Pass 2 version call. This is the largest single remaining performance improvement: a project with 5 folders and 15 `.rvt` files could go from 20 API calls (5 folder + 15 version) to as few as 5 (5 folder only).
+- **`apiAllWithInclude(path)`** — Paginated folder contents fetch that adds `?include=version` and returns `{items, included}`. Handles pagination via `links.next`, degrades gracefully on transient errors, and re-throws 403/404 for caller handling.
+- **No-version date inference for C4R files** — When `revitProjectVersion` is absent from the API (pre-2023 BIM 360 schema v1.1.x/v1.2.x) and the file's `lastModifiedTime` year is ≤ the critical threshold, the year is inferred from the modification date and the file is classified as Critical. Files marked with inferred versions show an `(est.)` indicator in the expanded row. Files where inference is not possible (modification date > threshold) retain the "No Version" status for manual review.
+- **No Version status** — New `no-version` project status and amber dashed chip for projects with confirmed RCW files but no version year available. Metric tile, filter option, PDF badge, CSV label, and About page entry added.
+
+### Changed
+- **VERSION constant** — bumped to `1.2.0`
+
+---
+
 ## [1.1.0] — 2026-05-01
 
 ### Added

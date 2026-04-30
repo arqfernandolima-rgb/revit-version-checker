@@ -156,7 +156,8 @@ tbody td{padding:10px 14px;font-size:13px;overflow:hidden;text-overflow:ellipsis
 .gprog-wrap{height:3px;background:var(--surface3);overflow:hidden}
 .gpfill{height:100%;background:var(--blue);transition:width 0.35s ease}
 .gpstats{font-size:11px;color:var(--hint);padding:6px 15px 8px}
-.chip-noaccess{background:var(--surface2);color:var(--hint);border:1px dashed var(--border2)}
+.chip-noaccess  {background:var(--surface2);color:var(--hint);border:1px dashed var(--border2)}
+.chip-noversion{background:rgba(180,83,9,0.08);color:var(--amber);border:1px dashed rgba(180,83,9,0.35)}
 .type-pill{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;white-space:nowrap;cursor:default}
 .tp-c4r  {background:var(--purple-dim);color:var(--purple);border:1px solid rgba(91,79,207,0.2)}
 .tp-cloud{background:var(--surface2);color:var(--hint);border:1px solid var(--border)}
@@ -230,9 +231,9 @@ tr.risk-row:hover{background:rgba(220,38,38,0.05)}
 </div>
 <script>
 // ─── VERSION ──────────────────────────────────────────────────────────────────
-const VERSION='1.1.0';
+const VERSION='1.2.0';
 const RELEASE_DATE='2026-05-01';
-const CHANGELOG_URL='https://github.com/tsb2127/revit-version-checker/releases/tag/v1.1.0';
+const CHANGELOG_URL='https://github.com/tsb2127/revit-version-checker/releases/tag/v1.2.0';
 
 const APS='https://developer.api.autodesk.com';
 const OAUTH={
@@ -429,6 +430,7 @@ function pStatus(p){
   if(p.pending) return'pending';    // not yet picked up by a scan worker
   if(p.scanning)return'scanning';   // actively being scanned right now
   if(p.noAccess)return'no-access';
+  if((p.c4rFiles?.length||0)>0&&!p.c4rVersion)return'no-version';
   if(!p.c4rVersion)return'no-c4r';
   if(p.c4rVersion==='MIXED')return'mixed';
   const v=parseInt(p.c4rVersion);
@@ -565,6 +567,35 @@ async function api(path,retries=3){
 }
 
 // ─── PAGINATED FETCH — follows links.next for DM API folder contents ────────────
+// apiAllWithInclude adds ?include=version to embed the latest version object for
+// each item inline, avoiding separate version API calls for classified items.
+// Returns {items, included} — items = data array, included = embedded version objects.
+// Falls back gracefully: if the parameter is unsupported, behaves like apiAll.
+async function apiAllWithInclude(path){
+  const sep=path.includes('?')?'&':'?';
+  const fullPath=path+sep+'include=version';
+  let items=[],included=[];
+  let next=fullPath;
+  while(next){
+    try{
+      const d=await api(next);
+      const page=d.data||[];
+      for(let i=0;i<page.length;i++)items.push(page[i]);
+      if(d.included){for(let i=0;i<d.included.length;i++)included.push(d.included[i]);}
+      const href=d.links?.next?.href||null;
+      if(href){
+        try{const u=new URL(href,APS);next=u.pathname+u.search;}
+        catch(e){next=null;}
+      }else{next=null;}
+    }catch(e){
+      if(e.status===403||e.status===404)throw e;
+      break; // transient error — return partial data
+    }
+  }
+  return{items,included};
+}
+
+// ─── PAGINATED FETCH — follows links.next for DM API folder contents ────────────
 // The /folders/{id}/contents endpoint returns max ~200 items per page.
 // links.next.href (when present) is a full URL — strip the base to reuse api().
 async function apiAll(path){
@@ -645,8 +676,9 @@ async function pool(tasks,limit){
 // File-level:    sequential within each folder.
 const GROUP_SIZE=100;   // projects per group — balances token lifetime vs progressive results
 const CONCURRENCY={
-  VERSION_FETCHES:8,  // 8 concurrent version calls — safe with rate limiter at 100/min (2 projects × 8 = 16 peak)
-  YIELD_EVERY:5,      // yield to browser every N folders
+  VERSION_FETCHES:8,  // 8 concurrent version calls per project (2×8=16 peak, within rate limit)
+  FOLDER_FETCHES:3,   // 3 concurrent folder content fetches per project (2×3=6 peak)
+  YIELD_EVERY:5,      // yield to browser every N folder batches
 };
 
 function buildGroups(projects){
@@ -758,53 +790,83 @@ async function scanProject(proj,hub){
   const allRvtItems=[];
   let foldersSinceYield=0;
 
-  while(queue.length>0&&!S.aborted){
-    const{id:folderId,path:pathLabel,depth}=queue.shift();
+  // ── Parallel BFS — CONCURRENCY.FOLDER_FETCHES folders fetched simultaneously ──
+  // Each batch takes FOLDER_FETCHES items from the front (highest-priority first).
+  // Subfolder discoveries from all batch items are collected, sorted, and prepended
+  // so priority order is maintained across parallel fetches.
+  // JS is single-threaded: syncronous post-await loops within each batch item
+  // execute atomically, so visitedFolders updates are race-free.
+  const isRvt=i=>{
+    const name=i.attributes?.displayName||i.attributes?.name||'';
+    return(i.type==='items'||i.type==='documents')&&name.toLowerCase().endsWith('.rvt');
+  };
 
+  while(queue.length>0&&!S.aborted){
     if(++foldersSinceYield>=CONCURRENCY.YIELD_EVERY){
       foldersSinceYield=0;
       await new Promise(res=>setTimeout(res,0));
     }
 
-    let items=[];
-    try{items=await apiAll('/data/v1/projects/'+proj.id+'/folders/'+folderId+'/contents');}
-    catch(e){if(e.status===403)proj.skippedFolders++;continue;}
+    // Take up to FOLDER_FETCHES items from the front
+    const batch=queue.splice(0,Math.min(CONCURRENCY.FOLDER_FETCHES,queue.length));
+    const batchSubFolders=[];
 
-    // Only descend further if under the depth limit
-    if(depth<MAX_FOLDER_DEPTH){
-      const subFolders=[];
-      for(const f of items.filter(i=>i.type==='folders')){
-        if(S.aborted)break;
-        if(visitedFolders.has(f.id))continue;
-        visitedFolders.add(f.id);
-        const fname=f.attributes.displayName||f.attributes.name||'';
-        // Apply the same skip list at every depth — archive/admin/process
-        // folders are non-RVT containers regardless of where they appear
-        if(SKIP_FOLDERS.has(fname.toLowerCase())){
-          proj.skippedTopFolders++; // reuse counter — "structural skips" at any depth
-          continue;
-        }
-        subFolders.push({
-          id:f.id,
-          path:pathLabel+' / '+fname,
-          depth:depth+1,
-          priority:FOLDER_PRIORITY(fname),
-        });
+    await Promise.all(batch.map(async({id:folderId,path:pathLabel,depth})=>{
+      // Use ?include=version to get version data inline — eliminates Pass 2 calls
+      // for items that have version data embedded. Falls back to Pass 2 for the rest.
+      let items=[],included=[];
+      try{
+        const d=await apiAllWithInclude('/data/v1/projects/'+proj.id+'/folders/'+folderId+'/contents');
+        items=d.items||[];
+        included=d.included||[];
+      }catch(e){if(e.status===403)proj.skippedFolders++;return;}
+
+      // Build version lookup from included data (keyed by item URN)
+      const inlineVersion=new Map();
+      for(const v of included){
+        const itemId=v.relationships?.item?.data?.id;
+        if(itemId)inlineVersion.set(itemId,v);
       }
-      // Priority-sort siblings before adding to front of queue
-      // (push to front so we finish the current branch before moving to next top folder)
-      subFolders.sort((a,b)=>a.priority-b.priority);
-      queue.unshift(...subFolders);
-    }
 
-    // Collect .rvt files — accept both 'items' and 'documents' types
-    const isRvt=i=>{
-      const name=i.attributes?.displayName||i.attributes?.name||'';
-      return(i.type==='items'||i.type==='documents')&&name.toLowerCase().endsWith('.rvt');
-    };
-    for(const item of items.filter(isRvt)){
-      allRvtItems.push({item,path:pathLabel});
-    }
+      // Subfolders — collected into batchSubFolders, sorted + unshifted after batch
+      if(depth<MAX_FOLDER_DEPTH){
+        for(const f of items.filter(i=>i.type==='folders')){
+          if(S.aborted)break;
+          if(visitedFolders.has(f.id))continue;
+          visitedFolders.add(f.id);
+          const fname=f.attributes.displayName||f.attributes.name||'';
+          if(SKIP_FOLDERS.has(fname.toLowerCase())){proj.skippedTopFolders++;continue;}
+          batchSubFolders.push({id:f.id,path:pathLabel+' / '+fname,depth:depth+1,priority:FOLDER_PRIORITY(fname)});
+        }
+      }
+
+      // Collect .rvt items — try to classify inline, fall back to allRvtItems (Pass 2)
+      for(const item of items.filter(isRvt)){
+        const iv=inlineVersion.get(item.id);
+        if(iv){
+          const ext=iv.attributes?.extension?.type||'';
+          const isC4R=ext.toLowerCase().includes('c4r');
+          const rv=iv.attributes?.extension?.data?.revitProjectVersion;
+          const modTime=iv.attributes?.lastModifiedTime||item.attributes?.lastModifiedTime||null;
+          const modBy=iv.attributes?.lastModifiedUserName||null;
+          let version=rv?String(rv):null;
+          let inferredVersion=false;
+          if(!version&&isC4R&&modTime){
+            const modYear=new Date(modTime).getFullYear();
+            if(modYear<=S.threshold){version=String(modYear);inferredVersion=true;}
+          }
+          const f={id:item.id,name:item.attributes?.displayName||'',path:pathLabel,version,isC4R,modTime,modBy,inferredVersion};
+          if(isC4R)proj.c4rFiles.push(f);else proj.cloudFiles.push(f);
+        }else{
+          // No inline version data — queue for Pass 2 version call
+          allRvtItems.push({item,path:pathLabel});
+        }
+      }
+    }));
+
+    // Sort all subfolder discoveries from this batch and prepend to queue
+    batchSubFolders.sort((a,b)=>a.priority-b.priority);
+    queue.unshift(...batchSubFolders);
   }
   if(S.aborted)return;
 
@@ -845,7 +907,7 @@ async function scanProject(proj,hub){
       return;
     }
 
-    let version=null,isC4R=false,modTime=null,modBy=null,versionFailed=false;
+    let version=null,isC4R=false,modTime=null,modBy=null,versionFailed=false,inferredVersion=false;
     try{
       const vd=await api('/data/v1/projects/'+proj.id+'/items/'+encodeURIComponent(item.id)+'/versions');
       const latest=(vd.data||[])[0];
@@ -853,7 +915,24 @@ async function scanProject(proj,hub){
         const ext=latest.attributes?.extension?.type||'';
         isC4R=ext.toLowerCase().includes('c4r');
         const rv=latest.attributes?.extension?.data?.revitProjectVersion;
-        if(rv)version=String(rv);
+        if(rv){
+          version=String(rv);
+        }else{
+          // revitProjectVersion absent — pre-2023 BIM 360 schema (v1.1.x/v1.2.x).
+          // Infer version year from lastModifiedTime: if the file was last published
+          // in year Y, it was almost certainly opened in Revit Y (or Y-1 at most).
+          // We only infer when the year is ≤ current threshold so we flag conservatively:
+          // files modified in or before the critical year are treated as that year.
+          const mt=latest.attributes?.lastModifiedTime;
+          if(mt){
+            const modYear=new Date(mt).getFullYear();
+            if(modYear<=S.threshold){
+              version=String(modYear); // conservative: flag as critical year
+              inferredVersion=true;
+            }
+            // If modYear > threshold we can't safely infer — leave version null
+          }
+        }
         modTime=latest.attributes?.lastModifiedTime;
         modBy=latest.attributes?.lastModifiedUserName;
       }
@@ -870,7 +949,7 @@ async function scanProject(proj,hub){
     }
 
     if(isC4R)confirmedC4RCount++; // safe — JS is single-threaded; pool workers interleave at awaits
-    const f={id:item.id,name,path:pathLabel,version,isC4R,modTime,modBy};
+    const f={id:item.id,name,path:pathLabel,version,isC4R,modTime,modBy,inferredVersion};
     if(isC4R)proj.c4rFiles.push(f);else proj.cloudFiles.push(f);
   }),CONCURRENCY.VERSION_FETCHES);
 }
@@ -1090,7 +1169,7 @@ function navTo(p){S.phase=(p==='scan')?(S.hub?'dash':'setup'):p;render();}
 
 // ─── CSV EXPORT ───────────────────────────────────────────────────────────────
 function exportCsv(groupIdx){
-  const lbl={critical:'Critical',warn:'Outdated',ok:'Current',mixed:'Mixed','no-c4r':'No RCW','no-access':'No Access',scanning:'Scanning'};
+  const lbl={critical:'Critical',warn:'Outdated',ok:'Current',mixed:'Mixed','no-c4r':'No RCW','no-access':'No Access','no-version':'No Version (RCW)',scanning:'Scanning'};
   const src=groupIdx!=null?S.projects.slice(S.groups[groupIdx].start,S.groups[groupIdx].end):S.projects;
   const gLabel=groupIdx!=null?` (${S.groups[groupIdx].label})`:'';
   let csv='Project,RCW Version,RCW Files,At Risk Files,RC Files,Status,Last Modified\n';
@@ -1156,7 +1235,7 @@ async function exportPdf(groupIdx){
   const critProj=filteredProjs.filter(p=>pStatus(p)==='critical').length;
   const warnProj=filteredProjs.filter(p=>pStatus(p)==='warn').length;
   const isFiltered=filteredProjs.length<S.projects.length;
-  const statusNames={critical:`Critical (≤${S.threshold})`,warn:`Outdated (${S.threshold+1}–${S.threshold+2})`,ok:`Current (≥${S.threshold+3})`,mixed:'Mixed','no-c4r':'No RCW','no-access':'No Access'};
+  const statusNames={critical:`Critical (≤${S.threshold})`,warn:`Outdated (${S.threshold+1}–${S.threshold+2})`,ok:`Current (≥${S.threshold+3})`,mixed:'Mixed','no-c4r':'No RCW','no-access':'No Access','no-version':'No Version (RCW)'};
   const filterDesc=S.statusFilters.size>0
     ?[...S.statusFilters].map(s=>statusNames[s]||s).join(', ')
     :(S.search?`Search: "${S.search}"`:null);
@@ -1254,6 +1333,7 @@ async function exportPdf(groupIdx){
     mixed:   {fill:PDF_C.purple, text:PDF_C.white,label:'Mixed'},
     'no-c4r':{fill:PDF_C.grey,   text:PDF_C.white,label:'No RCW'},
     'no-access':{fill:PDF_C.grey,text:PDF_C.white,label:'No Access'},
+    'no-version':{fill:PDF_C.amber,text:PDF_C.white,label:'No Version'},
     pending: {fill:PDF_C.grey,   text:PDF_C.white,label:'Queued'},
   };
   const rowBgColor={
@@ -1622,6 +1702,7 @@ function rDash(){
   const critProj=S.projects.filter(p=>pStatus(p)==='critical').length;
   const warnCount=S.projects.filter(p=>pStatus(p)==='warn').length;
   const currentCount=S.projects.filter(p=>pStatus(p)==='ok').length;
+  const noVersionCount=S.projects.filter(p=>pStatus(p)==='no-version').length;
 
   const eta=fmtEta(S.eta);
 
@@ -1692,6 +1773,7 @@ ${S.scanning?`<div class="scan-box">
             {v:"mixed",label:"Mixed versions",dot:"var(--purple)"},
             {v:"no-c4r",label:"No workshared files",dot:"var(--hint)"},
             {v:"no-access",label:"No file access (403)",dot:"var(--hint)"},
+            {v:"no-version",label:"No Version (RCW, year unknown)",dot:"var(--amber)"},
           ];
           const sel=S.statusFilters;
           const btnLabel=sel.size===0?"All statuses":sel.size===1?opts.find(o=>sel.has(o.v))?.label||"1 selected":`${sel.size} statuses`;
@@ -1820,7 +1902,8 @@ function rRow(p){
     ok:         `<span class="chip chip-ok">Current</span>`,
     mixed:      `<span class="chip chip-mixed">Mixed</span>`,
     'no-c4r':   `<span class="chip chip-none">No RCW</span>`,
-    'no-access':`<span class="chip chip-noaccess" title="User is not a member of this project">No Access</span>`,
+    'no-access' :`<span class="chip chip-noaccess" title="User is not a member of this project">No Access</span>`,
+    'no-version':`<span class="chip chip-noversion" title="RCW confirmed but Revit year absent from API (pre-2023 schema)">No Version</span>`,
     pending:    `<span class="chip chip-pending">Queued</span>`,
     scanning:   `<span class="chip chip-scan"><span class="spinner" style="width:9px;height:9px;margin-right:3px"></span>Scanning</span>`
   };
@@ -1849,16 +1932,19 @@ function rRow(p){
         <td style="color:var(--hint);font-size:10px;text-transform:uppercase">By</td>
       </tr></thead><tbody>
       ${(p.c4rFiles||[]).map(f=>{
-        const fv=parseInt(f.version||0);
-        const fc=isAtRisk(f.version)?'xrisk':'';
-        const fchip=isAtRisk(f.version)
-          ?`<span class="chip chip-crit" style="font-size:9px">Critical</span>`
-          :fv<=S.threshold+2
-            ?`<span class="chip chip-warn" style="font-size:9px">Outdated</span>`
-            :`<span class="chip chip-ok" style="font-size:9px">Current</span>`;
+        const fv=f.version?parseInt(f.version):null;
+        const fRisk=isAtRisk(f.version);
+        const fc=fRisk?'xrisk':'';
+        const fchip=!f.version
+          ?`<span class="chip chip-noversion" style="font-size:9px" title="Revit year not in API — pre-2023 schema">No Version</span>`
+          :fRisk
+            ?`<span class="chip chip-crit" style="font-size:9px">Critical</span>`
+            :fv<=S.threshold+2
+              ?`<span class="chip chip-warn" style="font-size:9px">Outdated</span>`
+              :`<span class="chip chip-ok" style="font-size:9px">Current</span>`;
         return`<tr class="${fc}">
           <td>${esc(f.name)}</td>
-          <td><span class="vb ${vClass(f.version)}" style="font-size:10px;padding:1px 7px">${f.version||'—'}</span></td>
+          <td><span class="vb ${vClass(f.version)}" style="font-size:10px;padding:1px 7px">${f.version||'—'}${f.inferredVersion?' <span style="font-size:9px;opacity:0.75">(est.)</span>':''}</span></td>
           <td>${fchip}</td>
           <td style="font-size:11px" title="${esc(f.path||'')}">${esc(f.path||'—')}</td>
           <td>${fDate(f.modTime)}</td>
@@ -1888,6 +1974,16 @@ function rRow(p){
     if(p.scanError){
       html+=`<div style="margin:8px 0 4px;padding:7px 10px;background:var(--red-dim);border:1px solid rgba(220,38,38,0.2);border-radius:5px;font-size:11px;color:var(--red)">
         Scan error: ${esc(p.scanError)}
+      </div>`;
+    }
+    if((p.c4rFiles||[]).some(f=>f.inferredVersion)){
+      html+=`<div style="margin:8px 0 4px;padding:8px 11px;background:rgba(180,83,9,0.06);border:1px dashed rgba(180,83,9,0.3);border-radius:5px;font-size:11px;color:var(--amber)">
+        <strong>Version estimated from file date.</strong> Files marked <em>(est.)</em> use the pre-2023 BIM 360 schema — <code style="background:rgba(180,83,9,0.1);padding:1px 4px;border-radius:3px;font-size:10px">revitProjectVersion</code> is absent from the API response. The Revit year shown is inferred from the file's last-modified date and may be approximate. <strong>Verify and upgrade in ACC if needed.</strong>
+      </div>`;
+    }
+    if((p.c4rFiles||[]).length>0&&!p.c4rVersion){
+      html+=`<div style="margin:8px 0 4px;padding:8px 11px;background:rgba(180,83,9,0.06);border:1px dashed rgba(180,83,9,0.3);border-radius:5px;font-size:11px;color:var(--amber)">
+        <strong>Revit year could not be determined.</strong> These are confirmed RCW files but neither <code style="background:rgba(180,83,9,0.1);padding:1px 4px;border-radius:3px;font-size:10px">revitProjectVersion</code> nor a usable modification date was available. Verify the Revit version manually in ACC.
       </div>`;
     }
     if(p.noAccess){
@@ -1938,6 +2034,7 @@ function rAbout(){
         <span class="chip chip-mixed">Mixed</span><span style="color:var(--muted)">Multiple Revit versions found in the same project. Expand the row to inspect individual files.</span>
         <span class="chip chip-none">No RCW</span><span style="color:var(--muted)">No Cloud Workshared files found. Project is not affected by the deprecation.</span>
         <span class="chip chip-noaccess">No Access</span><span style="color:var(--muted)">Project listed by Admin API but file access was denied (403). See expanded row for details and resolution steps.</span>
+        <span class="chip chip-noversion">No Version</span><span style="color:var(--muted)">RCW files confirmed but Revit year absent from API (pre-2023 BIM 360 schema v1.1.x/v1.2.x). Likely 2022 or older and may be at risk. Verify manually in ACC.</span>
       </div>
     </div>
     <div class="card">
