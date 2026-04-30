@@ -328,7 +328,7 @@ const S = {
   scanning:false,aborted:false,
   pct:0,msg:'',pdone:0,ptotal:0,
   expanded:new Set(),
-  search:'',statusFilter:'all',
+  search:'',statusFilter:['all'],
   sortCol:'risk',sortDir:-1,
   threshold:parseInt(localStorage.getItem('rvt_thresh')||'2021'),
   error:null
@@ -742,7 +742,8 @@ function rDash() {
 
   let rows = [...S.projects];
   if (S.search) { const q=S.search.toLowerCase(); rows=rows.filter(p=>p.name.toLowerCase().includes(q)); }
-  if (S.statusFilter!=='all') rows=rows.filter(p=>pStatus(p)===S.statusFilter);
+  const activeStatuses = Array.isArray(S.statusFilter) ? S.statusFilter : [S.statusFilter];
+  if (!activeStatuses.includes('all')) rows=rows.filter(p=>activeStatuses.includes(pStatus(p)));
   rows.sort((a,b)=>{
     let av,bv;
     if      (S.sortCol==='name')  { av=a.name; bv=b.name; }
@@ -799,14 +800,15 @@ function rDash() {
             <svg viewBox="0 0 16 16" fill="currentColor"><path d="M11.7 10.3a6.5 6.5 0 10-1.4 1.4l3.85 3.85a1 1 0 001.4-1.4l-3.85-3.85zM6.5 11a4.5 4.5 0 110-9 4.5 4.5 0 010 9z"/></svg>
             <input class="sinput" placeholder="Search projects…" value="${esc(S.search)}" oninput="S.search=this.value;render()"/>
           </div>
-          <select class="fsel" onchange="S.statusFilter=this.value;render()">
-            <option value="all">All statuses</option>
-            <option value="critical" ${S.statusFilter==='critical'?'selected':''}>Critical (at risk)</option>
-            <option value="warn"     ${S.statusFilter==='warn'?'selected':''}>Outdated</option>
-            <option value="ok"       ${S.statusFilter==='ok'?'selected':''}>Current</option>
-            <option value="no-c4r"   ${S.statusFilter==='no-c4r'?'selected':''}>No workshared files</option>
+          <select class="fsel" multiple size="1" title="Ctrl/Cmd+click to select multiple statuses" onchange="S.statusFilter=[...this.selectedOptions].map(o=>o.value);if(!S.statusFilter.length)S.statusFilter=['all'];if(S.statusFilter.includes('all')&&S.statusFilter.length>1)S.statusFilter=S.statusFilter.filter(v=>v!=='all');render()">
+            <option value="all" ${S.statusFilter.includes('all')?'selected':''}>All statuses</option>
+            <option value="critical" ${S.statusFilter.includes('critical')?'selected':''}>Critical (at risk)</option>
+            <option value="warn"     ${S.statusFilter.includes('warn')?'selected':''}>Outdated</option>
+            <option value="ok"       ${S.statusFilter.includes('ok')?'selected':''}>Current</option>
+            <option value="no-c4r"   ${S.statusFilter.includes('no-c4r')?'selected':''}>No workshared files</option>
           </select>
           <button class="btn btn-g btn-sm" onclick="exportCsv()">Export CSV</button>
+          <button class="btn btn-g btn-sm" onclick="exportPdf()">Export PDF</button>
           <button class="btn btn-g btn-sm" onclick="S.phase='hubs';render()">Change hub</button>
         </div>
       </div>
@@ -1025,6 +1027,40 @@ window.exportCsv = () => {
   a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
   a.download='revit-hub-scan-'+new Date().toISOString().slice(0,10)+'.csv';
   a.click();
+};
+
+window.exportPdf = () => {
+  const rows = [...S.projects];
+  const filtered = rows.filter(p => {
+    if (S.search && !p.name.toLowerCase().includes(S.search.toLowerCase())) return false;
+    const activeStatuses = Array.isArray(S.statusFilter) ? S.statusFilter : [S.statusFilter];
+    if (!activeStatuses.includes('all') && !activeStatuses.includes(pStatus(p))) return false;
+    return true;
+  });
+  const printedOn = new Date().toLocaleString();
+  const html = `
+  <html><head><title>Revit Hub Scan Report</title>
+  <style>
+    body{font-family:Arial,sans-serif;padding:24px;color:#111} h1{margin:0 0 8px} .meta{color:#555;margin-bottom:16px}
+    table{width:100%;border-collapse:collapse;font-size:12px} th,td{border:1px solid #ccc;padding:6px;text-align:left}
+    th{background:#f3f3f3} .section{margin-top:22px}
+  </style></head><body>
+    <h1>Revit Version Checker Report</h1>
+    <div class="meta">Generated: ${esc(printedOn)} | Threshold: ${S.threshold} | Filter: ${(Array.isArray(S.statusFilter)?S.statusFilter:[S.statusFilter]).join(', ')}</div>
+    <table><thead><tr><th>Project</th><th>C4R Version</th><th>C4R Files</th><th>At Risk</th><th>Cloud Files</th><th>Status</th><th>Last Modified</th></tr></thead>
+    <tbody>
+      ${filtered.map(p=>`<tr><td>${esc(p.name)}</td><td>${esc(p.c4rVersion||'—')}</td><td>${p.c4rCount||0}</td><td>${p.atRisk||0}</td><td>${p.cloudCount||0}</td><td>${esc(pStatus(p))}</td><td>${fDate(p.lastMod)}</td></tr>`).join('')}
+    </tbody></table>
+    <div class="section"><h3>Critical project details</h3>
+      ${filtered.filter(p=>pStatus(p)==='critical').map(p=>`<p><strong>${esc(p.name)}</strong>: ${p.atRisk||0} at-risk RCW model(s)</p>`).join('') || '<p>None</p>'}
+    </div>
+  </body></html>`;
+  const w = window.open('', '_blank');
+  if(!w) return alert('Pop-up blocked. Please allow pop-ups to export PDF.');
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  w.print();
 };
 
 // ─── OAUTH CALLBACK HANDLER ───────────────────────────────────────────────────
