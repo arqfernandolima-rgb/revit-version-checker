@@ -5,215 +5,213 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Revit Version Checker — Autodesk Forma / ACC</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 <style>
-:root {
-  --bg:#0f0f0f;--surface:#181818;--surface2:#212121;--surface3:#252525;
-  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
-  --text:#f0f0f0;--muted:#888;--hint:#4a4a4a;
-  --blue:#1473E6;--blue-light:#378AFF;--blue-dim:rgba(20,115,230,0.14);
-  --green:#1D9E75;--green-dim:rgba(29,158,117,0.14);
-  --amber:#EF9F27;--amber-dim:rgba(239,159,39,0.13);
-  --red:#E24B4A;--red-dim:rgba(226,75,74,0.12);
-  --purple:#7F77DD;--purple-dim:rgba(127,119,221,0.13);
-  --r:8px;--rl:12px;
+:root{
+  --bg:#f3f5f8;--surface:#ffffff;--surface2:#f0f2f6;--surface3:#e8ecf2;
+  --border:rgba(0,0,0,0.08);--border2:rgba(0,0,0,0.14);
+  --text:#111827;--muted:#4b5563;--hint:#9ca3af;
+  --blue:#1473E6;--blue-light:#0d5cbf;--blue-dim:rgba(20,115,230,0.09);
+  --green:#0d7d5f;--green-dim:rgba(13,125,95,0.09);
+  --amber:#b45309;--amber-dim:rgba(180,83,9,0.09);
+  --red:#dc2626;--red-dim:rgba(220,38,38,0.08);
+  --purple:#5b4fcf;--purple-dim:rgba(91,79,207,0.09);
+  --r:7px;--rl:10px;
+  --shadow:0 1px 3px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md:0 4px 12px rgba(0,0,0,0.08),0 2px 4px rgba(0,0,0,0.05);
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html{background:var(--bg);color:var(--text);font-family:'DM Sans',-apple-system,sans-serif;font-size:14px;line-height:1.6}
+html{background:var(--bg);color:var(--text);font-family:'Outfit',-apple-system,sans-serif;font-size:14px;line-height:1.6}
 body{min-height:100vh}
-
-.topbar{background:#0a0a0a;border-bottom:0.5px solid var(--border);height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;position:sticky;top:0;z-index:100}
+.topbar{background:#fff;border-bottom:1px solid var(--border);height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
 .tl{display:flex;align-items:center;gap:11px}
-.logo{width:26px;height:26px;background:var(--blue);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.logo{width:28px;height:28px;background:var(--blue);border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .logo svg{width:15px;height:15px}
-.app-name{font-size:13px;font-weight:600;letter-spacing:-0.01em}
-.app-sub{font-size:11px;color:var(--muted);padding-left:9px;border-left:0.5px solid var(--border2);margin-left:1px}
-.user-chip{display:flex;align-items:center;gap:7px;background:var(--surface);border:0.5px solid var(--border2);border-radius:20px;padding:3px 11px 3px 5px}
-.ava{width:22px;height:22px;border-radius:50%;background:var(--blue-dim);border:1px solid rgba(20,115,230,0.4);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:var(--blue-light)}
+.app-name{font-size:14px;font-weight:700;letter-spacing:-0.01em}
+.app-sub{font-size:11px;color:var(--hint);padding-left:10px;border-left:1px solid var(--border2);margin-left:1px}
+.user-chip{display:flex;align-items:center;gap:7px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:3px 12px 3px 5px}
+.ava{width:22px;height:22px;border-radius:50%;background:var(--blue-dim);border:1px solid rgba(20,115,230,0.3);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--blue)}
 .uname{font-size:12px;color:var(--muted)}
-
-.shell{display:flex;min-height:calc(100vh - 50px)}
-.sidebar{width:210px;flex-shrink:0;background:var(--surface);border-right:0.5px solid var(--border);padding:18px 0;display:flex;flex-direction:column}
-.content{flex:1;padding:22px;overflow-x:hidden;min-width:0}
+.shell{display:flex;min-height:calc(100vh - 52px)}
+.sidebar{width:210px;flex-shrink:0;background:#fff;border-right:1px solid var(--border);padding:18px 0;display:flex;flex-direction:column}
+.content{flex:1;padding:24px;overflow-x:hidden;min-width:0}
 .ss{padding:0 14px;margin-bottom:18px}
-.slabel{font-size:10px;font-weight:600;color:var(--hint);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:5px}
-.ni{display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:var(--r);font-size:13px;color:var(--muted);cursor:pointer;transition:background 0.12s,color 0.12s;border:none;background:transparent;width:100%;text-align:left;text-decoration:none}
+.slabel{font-size:10px;font-weight:700;color:var(--hint);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px}
+.ni{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--r);font-size:13px;color:var(--muted);cursor:pointer;transition:background 0.12s,color 0.12s;border:none;background:transparent;width:100%;text-align:left;text-decoration:none;font-family:inherit}
 .ni:hover{background:var(--surface2);color:var(--text)}
-.ni.active{background:var(--blue-dim);color:var(--blue-light)}
-.ni svg{width:13px;height:13px;flex-shrink:0}
-.ndiv{height:0.5px;background:var(--border);margin:7px 14px}
-
-.card{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--rl);padding:18px;margin-bottom:14px}
-.field{display:flex;flex-direction:column;gap:4px;margin-bottom:11px}
-.field label{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em}
-.field input,.field select{height:34px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);color:var(--text);padding:0 11px;font-size:13px;font-family:inherit;outline:none;transition:border-color 0.12s}
-.field input:focus,.field select:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-dim)}
-.field input::placeholder{color:var(--hint)}
-.field select option{background:#1a1a1a}
-.frow{display:grid;grid-template-columns:1fr 1fr;gap:11px}
-
-.btn{height:34px;padding:0 15px;border-radius:var(--r);font-size:13px;font-weight:500;font-family:inherit;cursor:pointer;border:none;transition:all 0.12s;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
-.btn-blue{background:var(--blue);color:#fff}
+.ni.active{background:var(--blue-dim);color:var(--blue)}
+.ni svg{width:14px;height:14px;flex-shrink:0}
+.ndiv{height:1px;background:var(--border);margin:8px 14px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:18px;margin-bottom:14px;box-shadow:var(--shadow)}
+.btn{height:36px;padding:0 16px;border-radius:var(--r);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;border:none;transition:all 0.12s;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn-blue{background:var(--blue);color:#fff;box-shadow:0 1px 3px rgba(20,115,230,0.3)}
 .btn-blue:hover{background:var(--blue-light)}
-.btn-g{background:transparent;color:var(--muted);border:0.5px solid var(--border2)}
+.btn-g{background:transparent;color:var(--muted);border:1px solid var(--border2)}
 .btn-g:hover{background:var(--surface2);color:var(--text)}
-.btn-sm{height:26px;padding:0 9px;font-size:11px}
-.btn-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
-
-.alert{border-radius:var(--r);padding:9px 13px;font-size:12px;display:flex;align-items:flex-start;gap:8px;margin-bottom:13px;line-height:1.55}
+.btn-g:disabled{opacity:0.4;cursor:not-allowed;pointer-events:none}
+.btn-sm{height:28px;padding:0 10px;font-size:11px}
+.alert{border-radius:var(--r);padding:10px 14px;font-size:12px;display:flex;align-items:flex-start;gap:9px;margin-bottom:13px;line-height:1.55}
 .alert svg{width:13px;height:13px;flex-shrink:0;margin-top:1px}
-.a-info{background:var(--blue-dim);border:0.5px solid rgba(20,115,230,0.28);color:#7ab4f5}
-.a-warn{background:rgba(239,159,39,0.08);border:0.5px solid rgba(239,159,39,0.24);color:#c9a44a}
-.a-err{background:var(--red-dim);border:0.5px solid rgba(226,75,74,0.28);color:#f5a09f}
-
-.hub-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:9px}
-.hub-card{background:var(--surface2);border:0.5px solid var(--border);border-radius:var(--rl);padding:15px;cursor:pointer;transition:border-color 0.12s,background 0.12s;text-align:left;width:100%}
-.hub-card:hover{border-color:var(--blue);background:var(--blue-dim)}
+.a-info{background:var(--blue-dim);border:1px solid rgba(20,115,230,0.2);color:var(--blue-light)}
+.a-warn{background:var(--amber-dim);border:1px solid rgba(180,83,9,0.2);color:var(--amber)}
+.a-err{background:var(--red-dim);border:1px solid rgba(220,38,38,0.2);color:var(--red)}
+.hub-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.hub-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:16px;cursor:pointer;transition:border-color 0.15s,box-shadow 0.15s;text-align:left;width:100%;box-shadow:var(--shadow)}
+.hub-card:hover{border-color:var(--blue);box-shadow:var(--shadow-md)}
 .hcn{font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px}
 .hcs{font-size:11px;color:var(--hint)}
-
-.metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px}
-.metric{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--rl);padding:14px}
-.ml{font-size:10px;font-weight:600;color:var(--hint);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px}
-.mv{font-size:22px;font-weight:600;color:var(--text);line-height:1}
+.metrics{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:16px}
+.metric{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:15px;box-shadow:var(--shadow)}
+.ml{font-size:10px;font-weight:700;color:var(--hint);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px}
+.mv{font-size:24px;font-weight:700;color:var(--text);line-height:1}
 .ms{font-size:11px;color:var(--hint);margin-top:3px}
-
-.threshold-bar{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--rl);padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.threshold-bar{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;box-shadow:var(--shadow)}
 .tbar-label{font-size:12px;color:var(--muted);white-space:nowrap}
 .tbar-btns{display:flex;gap:5px}
-.tbar-btn{height:24px;padding:0 9px;border-radius:var(--r);font-size:11px;font-weight:500;font-family:inherit;cursor:pointer;border:0.5px solid var(--border2);background:transparent;color:var(--muted);transition:all 0.12s}
+.tbar-btn{height:26px;padding:0 10px;border-radius:var(--r);font-size:11px;font-weight:600;font-family:inherit;cursor:pointer;border:1px solid var(--border2);background:transparent;color:var(--muted);transition:all 0.12s}
 .tbar-btn:hover{background:var(--surface2);color:var(--text)}
-.tbar-btn.sel{background:var(--amber-dim);border-color:rgba(239,159,39,0.4);color:var(--amber)}
-.tbar-desc{font-size:11px;color:var(--hint);margin-left:auto}
-
-.scan-box{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--rl);padding:18px;margin-bottom:14px}
+.tbar-btn.sel{background:rgba(220,38,38,0.08);border-color:rgba(220,38,38,0.3);color:var(--red)}
+.scan-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:18px;margin-bottom:14px;box-shadow:var(--shadow)}
 .ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
 .pt{font-size:13px;font-weight:500}
-.pp{font-size:13px;font-weight:600;color:var(--blue-light)}
-.ptrack{height:3px;background:var(--surface2);border-radius:2px;overflow:hidden;margin-bottom:9px}
-.pfill{height:100%;background:var(--blue);border-radius:2px;transition:width 0.35s ease}
-.pmsg{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
-.pstats{font-size:11px;color:var(--hint);margin-top:5px}
-.spinner{display:inline-block;width:11px;height:11px;border:1.5px solid var(--border2);border-top-color:var(--blue);border-radius:50%;animation:spin 0.7s linear infinite;flex-shrink:0}
+.pp{font-size:13px;font-weight:700;color:var(--blue)}
+.ptrack{height:5px;background:var(--surface2);border-radius:3px;overflow:hidden;margin-bottom:10px}
+.pfill{height:100%;background:var(--blue);border-radius:3px;transition:width 0.35s ease}
+.prow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px}
+.pmsg{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:7px;min-width:0;overflow:hidden}
+.pmsg .lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.peta{font-size:11px;color:var(--hint);white-space:nowrap;flex-shrink:0}
+.pstats{font-size:11px;color:var(--hint)}
+.spinner{display:inline-block;width:11px;height:11px;border:2px solid var(--border2);border-top-color:var(--blue);border-radius:50%;animation:spin 0.7s linear infinite;flex-shrink:0}
 @keyframes spin{to{transform:rotate(360deg)}}
-
-.tc{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--rl);overflow:hidden;margin-bottom:14px}
-.thead-row{padding:12px 16px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:9px}
-.ttitle{font-size:13px;font-weight:600}
-.cbadge{background:var(--surface2);border:0.5px solid var(--border);border-radius:10px;padding:1px 7px;font-size:10px;color:var(--muted)}
+.tc{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;margin-bottom:14px;box-shadow:var(--shadow)}
+.thead-row{padding:13px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:9px}
+.ttitle{font-size:13px;font-weight:700}
+.cbadge{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:1px 8px;font-size:10px;color:var(--muted);font-weight:600}
 .tcontrols{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
 .sw{position:relative}
-.sw svg{position:absolute;left:7px;top:50%;transform:translateY(-50%);width:11px;height:11px;color:var(--hint);pointer-events:none}
-.sinput{height:26px;background:var(--surface2);border:0.5px solid var(--border);border-radius:var(--r);color:var(--text);padding:0 9px 0 24px;font-size:12px;font-family:inherit;outline:none;width:170px}
+.sw svg{position:absolute;left:8px;top:50%;transform:translateY(-50%);width:11px;height:11px;color:var(--hint);pointer-events:none}
+.sinput{height:28px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:0 10px 0 26px;font-size:12px;font-family:inherit;outline:none;width:175px}
 .sinput:focus{border-color:var(--blue)}
-.fsel{height:26px;background:var(--surface2);border:0.5px solid var(--border);border-radius:var(--r);color:var(--text);padding:0 8px;font-size:12px;font-family:inherit;outline:none;cursor:pointer}
-.fsel option{background:#1a1a1a}
-
+.fsel{height:28px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:0 9px;font-size:12px;font-family:inherit;outline:none;cursor:pointer}
+.fsel option{background:#fff}
+.filter-dd{position:relative;display:inline-block}
+.filter-btn{height:28px;padding:0 9px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-size:12px;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;transition:border-color 0.12s}
+.filter-btn:hover,.filter-btn.open{border-color:var(--blue-light)}
+.filter-btn.active{background:var(--blue-dim);border-color:rgba(20,115,230,0.35);color:var(--blue-light)}
+.filter-btn svg{width:9px;height:9px;opacity:0.5;flex-shrink:0;transition:transform 0.15s}
+.filter-btn.open svg{transform:rotate(180deg)}
+.filter-panel{position:absolute;top:calc(100% + 5px);right:0;background:var(--surface);border:1px solid var(--border2);border-radius:var(--rl);box-shadow:var(--shadow-md);padding:5px 0;min-width:220px;z-index:300}
+.filter-opt{display:flex;align-items:center;gap:9px;padding:7px 13px;cursor:pointer;font-size:12px;color:var(--text);transition:background 0.08s;user-select:none}
+.filter-opt:hover{background:var(--surface2)}
+.filter-cb{width:14px;height:14px;border:1.5px solid var(--border2);border-radius:3px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.1s}
+.filter-cb.on{background:var(--blue);border-color:var(--blue)}
+.filter-cb svg{display:none;width:9px;height:9px}
+.filter-cb.on svg{display:block}
+.filter-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.fdiv{height:1px;background:var(--border);margin:4px 0}
+.filter-clear{display:flex;align-items:center;justify-content:space-between;padding:5px 13px;font-size:11px;color:var(--hint);cursor:pointer}
+.filter-clear:hover{color:var(--blue)}
 table{width:100%;border-collapse:collapse;table-layout:fixed}
-thead th{padding:8px 14px;text-align:left;font-size:10px;font-weight:600;color:var(--hint);text-transform:uppercase;letter-spacing:0.08em;background:var(--surface2);border-bottom:0.5px solid var(--border);cursor:pointer;user-select:none;white-space:nowrap}
+thead th{padding:9px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--hint);text-transform:uppercase;letter-spacing:0.08em;background:var(--surface2);border-bottom:1px solid var(--border);cursor:pointer;user-select:none;white-space:nowrap}
 thead th:hover{color:var(--muted)}
-tbody tr{border-bottom:0.5px solid var(--border);transition:background 0.08s}
+tbody tr{border-bottom:1px solid var(--border);transition:background 0.08s}
 tbody tr:last-child{border-bottom:none}
 tbody tr:hover{background:var(--surface2)}
 tbody td{padding:10px 14px;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-
-/* version badges */
-.vb{display:inline-flex;align-items:center;justify-content:center;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap}
-.v-ok  {background:var(--green-dim);color:#4ecba3;border:0.5px solid rgba(29,158,117,0.28)}
-.v-1   {background:var(--blue-dim);color:#7ab4f5;border:0.5px solid rgba(20,115,230,0.28)}
-.v-2   {background:var(--amber-dim);color:#f5c96a;border:0.5px solid rgba(239,159,39,0.28)}
-.v-old {background:var(--red-dim);color:#f5a09f;border:0.5px solid rgba(226,75,74,0.28)}
-.v-risk{background:rgba(226,75,74,0.2);color:#f5a09f;border:1px solid rgba(226,75,74,0.45)}
-.v-none{background:var(--surface2);color:var(--hint);border:0.5px solid var(--border)}
-
-/* status chips */
-.chip{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;text-transform:uppercase;letter-spacing:0.04em}
-.chip-ok  {background:var(--green-dim);color:#4ecba3}
-.chip-warn{background:var(--amber-dim);color:#f5c96a}
-.chip-crit{background:var(--red-dim);color:#f5a09f}
-.chip-none{background:var(--surface2);color:var(--hint)}
-.chip-scan{background:var(--surface2);color:var(--hint)}
-
-/* model type pills */
-.type-pill{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px;white-space:nowrap}
-.tp-c4r  {background:var(--purple-dim);color:#a89fea;border:0.5px solid rgba(127,119,221,0.3)}
-.tp-cloud{background:var(--surface2);color:var(--hint);border:0.5px solid var(--border)}
-
-tr.risk-row{background:rgba(226,75,74,0.04)}
-tr.risk-row:hover{background:rgba(226,75,74,0.08)}
-
-/* expand */
+/* ── Version badges — threshold-relative ──────────────────────────────────
+   ok   = current  (>= threshold+3)        green
+   warn = outdated (threshold+1..threshold+2) amber
+   risk = critical (<= threshold)           red              */
+.vb{display:inline-flex;align-items:center;justify-content:center;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:700;white-space:nowrap}
+.v-ok  {background:var(--green-dim);color:var(--green);border:1px solid rgba(13,125,95,0.22)}
+.v-warn{background:var(--amber-dim);color:var(--amber);border:1px solid rgba(180,83,9,0.22)}
+.v-risk{background:rgba(220,38,38,0.11);color:var(--red);border:1.5px solid rgba(220,38,38,0.3)}
+.v-none{background:var(--surface2);color:var(--hint);border:1px solid var(--border)}
+.chip{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:0.04em}
+.chip-ok   {background:var(--green-dim);color:var(--green)}
+.chip-warn {background:var(--amber-dim);color:var(--amber)}
+.chip-crit {background:var(--red-dim);color:var(--red)}
+.chip-mixed{background:var(--purple-dim);color:var(--purple)}
+.chip-none   {background:var(--surface2);color:var(--hint)}
+.chip-scan   {background:var(--surface2);color:var(--hint)}
+.chip-pending{background:var(--surface2);color:var(--hint);border:1px solid var(--border)}
+/* ── Group sections ─────────────────────────────────────────────────────────── */
+.group-section{margin-bottom:10px}
+.group-hdr{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:11px 15px;display:flex;align-items:center;gap:10px;cursor:pointer;box-shadow:var(--shadow);transition:background 0.1s;user-select:none}
+.group-hdr:hover{background:var(--surface2)}
+.group-hdr.open{border-bottom-left-radius:0;border-bottom-right-radius:0}
+.group-body{border:1px solid var(--border);border-top:none;border-bottom-left-radius:var(--rl);border-bottom-right-radius:var(--rl);overflow:hidden}
+.gchev{width:14px;height:14px;flex-shrink:0;transition:transform 0.18s;color:var(--hint)}
+.gchev.open{transform:rotate(90deg)}
+.gname{font-size:13px;font-weight:700;color:var(--text)}
+.gstats{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-left:auto}
+.gbadge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;white-space:nowrap}
+.gb-crit{background:rgba(220,38,38,0.1);color:var(--red)}
+.gb-warn{background:var(--amber-dim);color:var(--amber)}
+.gb-ok{background:var(--green-dim);color:var(--green)}
+.gb-none{background:var(--surface2);color:var(--hint);border:1px solid var(--border)}
+.gprog-wrap{height:3px;background:var(--surface3);overflow:hidden}
+.gpfill{height:100%;background:var(--blue);transition:width 0.35s ease}
+.gpstats{font-size:11px;color:var(--hint);padding:6px 15px 8px}
+.chip-noaccess{background:var(--surface2);color:var(--hint);border:1px dashed var(--border2)}
+.type-pill{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;white-space:nowrap;cursor:default}
+.tp-c4r  {background:var(--purple-dim);color:var(--purple);border:1px solid rgba(91,79,207,0.2)}
+.tp-cloud{background:var(--surface2);color:var(--hint);border:1px solid var(--border)}
+tr.risk-row{background:rgba(220,38,38,0.025)}
+tr.risk-row:hover{background:rgba(220,38,38,0.05)}
 .xbtn{background:transparent;border:none;cursor:pointer;color:var(--hint);padding:0;display:flex;align-items:center;transition:color 0.12s}
 .xbtn:hover{color:var(--text)}
 .xbtn svg{width:12px;height:12px;transition:transform 0.18s}
 .xbtn.open svg{transform:rotate(90deg)}
-.xrow td{padding:0;border-bottom:0.5px solid var(--border)}
+.xrow td{padding:0;border-bottom:1px solid var(--border)}
 .xinner{padding:10px 14px 14px 44px;background:var(--surface3)}
-
-/* section headers inside expand */
-.xsec-head{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;padding:8px 10px 4px;color:var(--hint)}
+.xsec-head{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;padding:8px 10px 4px;color:var(--hint)}
 .xmini{width:100%;border-collapse:collapse;font-size:12px}
-.xmini td{padding:5px 10px;border-bottom:0.5px solid var(--border);color:var(--muted)}
+.xmini td{padding:5px 10px;border-bottom:1px solid var(--border);color:var(--muted)}
 .xmini tr:last-child td{border-bottom:none}
 .xmini td:first-child{color:var(--text)}
-.xmini tr.xrisk td{color:#f5a09f}
-.xmini tr.xrisk td:first-child{color:#f5a09f}
+.xmini tr.xrisk td{color:var(--red)}
+.xmini tr.xrisk td:first-child{color:var(--red);font-weight:600}
 .xmini tr.xcloud td{color:var(--hint);font-style:italic}
-
-.acc-link{display:inline-flex;align-items:center;gap:3px;color:var(--blue-light);font-size:11px;text-decoration:none;opacity:0.65;transition:opacity 0.12s}
+.acc-link{display:inline-flex;align-items:center;gap:3px;color:var(--blue);font-size:11px;text-decoration:none;opacity:0.65;transition:opacity 0.12s}
 .acc-link:hover{opacity:1}
 .acc-link svg{width:10px;height:10px}
-
-.depr{background:rgba(239,159,39,0.07);border:0.5px solid rgba(239,159,39,0.22);border-radius:var(--rl);padding:13px 16px;margin-bottom:16px;display:flex;align-items:flex-start;gap:11px}
-.depr svg{width:15px;height:15px;color:var(--amber);flex-shrink:0;margin-top:1px}
-.dt{font-size:13px;font-weight:600;color:var(--amber);margin-bottom:2px}
-.db{font-size:12px;color:#c9a44a;line-height:1.6}
-
+.depr{background:rgba(220,38,38,0.04);border:1px solid rgba(220,38,38,0.18);border-radius:var(--rl);padding:14px 17px;margin-bottom:16px;display:flex;align-items:flex-start;gap:12px}
+.depr svg{width:16px;height:16px;color:var(--red);flex-shrink:0;margin-top:1px}
+.dt{font-size:13px;font-weight:700;color:var(--red);margin-bottom:2px}
+.db{font-size:12px;color:#991b1b;line-height:1.65}
 .empty{padding:50px 20px;text-align:center}
 .et{font-size:13px;font-weight:500;color:var(--muted);margin-bottom:4px}
 .es{font-size:12px;color:var(--hint)}
-.pname{font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pname{font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .psub{font-size:11px;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-
-/* legend */
-.legend{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 16px;border-top:0.5px solid var(--border);background:var(--surface2)}
-.legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--hint)}
-
-/* CSS tooltips on type pills — handled by JS global tooltip */
-.type-pill{position:relative;cursor:default}
-
-/* th tooltip wrapper */
-.th-tip{position:relative;display:inline-flex;align-items:center;gap:4px}
-.th-tip{cursor:default}
-thead th{overflow:visible}
-thead{overflow:visible}
-
+.legend{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 16px;border-top:1px solid var(--border);background:var(--surface2)}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)}
 @media(max-width:820px){.sidebar{display:none}.metrics{grid-template-columns:1fr 1fr 1fr}}
 @media(max-width:900px){.setup-grid{grid-template-columns:1fr !important}}
 </style>
 </head>
 <body>
-
 <div class="topbar">
   <div class="tl">
     <div class="logo"><svg viewBox="0 0 16 16" fill="white"><path d="M2 12.5L5.8 3h2.1L11.5 12.5H9.3l-.9-2.5H5.6l-.9 2.5H2zm4.5-7.5L5.2 8.8h2.6L6.5 5z"/></svg></div>
     <span class="app-name">Revit Version Checker</span>
-    <span class="app-sub">Autodesk Forma / ACC</span>
+    <span class="app-sub">Autodesk Forma / ACC</span><a id="ver-badge" href="#" target="_blank" style="font-size:10px;color:var(--hint);text-decoration:none;padding:1px 7px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;margin-left:6px;transition:color 0.12s;white-space:nowrap" onmouseover="this.style.color='var(--blue)'" onmouseout="this.style.color='var(--hint)'"></a>
   </div>
   <div id="tr"></div>
 </div>
-
 <div class="shell">
   <nav class="sidebar" id="sidebar">
     <div class="ss">
       <div class="slabel">Navigate</div>
       <button class="ni active" id="nav-scan" onclick="navTo('scan')">
-        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 3.5h14v1.2H1zm0 3.9h14v1.2H1zm0 3.9h9v1.2H1z"/></svg>
-        Hub dashboard
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 3.5h14v1.2H1zm0 3.9h14v1.2H1zm0 3.9h9v1.2H1z"/></svg>Hub dashboard
       </button>
       <button class="ni" id="nav-about" onclick="navTo('about')">
-        <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M8 7v5M8 5.2v.8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-        About
+        <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M8 7v5M8 5.2v.8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>About
       </button>
     </div>
     <div class="ndiv"></div>
@@ -221,937 +219,1849 @@ thead{overflow:visible}
     <div style="flex:1"></div>
     <div class="ss" style="margin-bottom:0">
       <a class="ni" href="https://github.com/tsb2127/revit-version-checker" target="_blank">
-        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 .5a7.5 7.5 0 00-2.37 14.62c.37.07.51-.16.51-.36 0-.18-.01-.65-.01-1.28-2.08.45-2.52-1-2.52-1-.34-.86-.83-1.09-.83-1.09-.68-.46.05-.45.05-.45.75.05 1.15.77 1.15.77.67 1.14 1.75.81 2.18.62.07-.48.26-.81.47-1-1.66-.19-3.41-.83-3.41-3.7 0-.82.29-1.49.77-2.01-.08-.19-.33-.95.07-1.98 0 0 .63-.2 2.06.77A7.17 7.17 0 018 4.42a7.17 7.17 0 011.88.25c1.43-.97 2.06-.77 2.06-.77.4 1.03.15 1.79.07 1.98.48.52.77 1.19.77 2.01 0 2.88-1.75 3.51-3.42 3.7.27.23.51.69.51 1.39 0 1-.01 1.81-.01 2.06 0 .2.14.43.52.36A7.5 7.5 0 008 .5z"/></svg>
-        GitHub
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 .5a7.5 7.5 0 00-2.37 14.62c.37.07.51-.16.51-.36 0-.18-.01-.65-.01-1.28-2.08.45-2.52-1-2.52-1-.34-.86-.83-1.09-.83-1.09-.68-.46.05-.45.05-.45.75.05 1.15.77 1.15.77.67 1.14 1.75.81 2.18.62.07-.48.26-.81.47-1-1.66-.19-3.41-.83-3.41-3.7 0-.82.29-1.49.77-2.01-.08-.19-.33-.95.07-1.98 0 0 .63-.2 2.06.77A7.17 7.17 0 018 4.42a7.17 7.17 0 011.88.25c1.43-.97 2.06-.77 2.06-.77.4 1.03.15 1.79.07 1.98.48.52.77 1.19.77 2.01 0 2.88-1.75 3.51-3.42 3.7.27.23.51.69.51 1.39 0 1-.01 1.81-.01 2.06 0 .2.14.43.52.36A7.5 7.5 0 008 .5z"/></svg>GitHub
       </a>
       <a class="ni" href="https://aps.autodesk.com" target="_blank">
-        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5l6.5 12h-13L8 1.5zm0 3.5L4 12h8L8 5z"/></svg>
-        APS docs
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5l6.5 12h-13L8 1.5zm0 3.5L4 12h8L8 5z"/></svg>APS docs
       </a>
     </div>
   </nav>
   <main class="content" id="mc"></main>
 </div>
-
 <script>
-const APS = 'https://developer.api.autodesk.com';
+// ─── VERSION ──────────────────────────────────────────────────────────────────
+const VERSION='1.1.0';
+const RELEASE_DATE='2026-05-01';
+const CHANGELOG_URL='https://github.com/tsb2127/revit-version-checker/releases/tag/v1.1.0';
 
-// ─── PKCE OAuth config ────────────────────────────────────────────────────────
-// No hardcoded client ID — each user supplies their own APS app credentials.
-// This means the app works for any ACC hub without needing a central whitelist.
-const OAUTH = {
-  redirectUri: window.location.origin + window.location.pathname.replace(/\/$/,''),
-  authUrl:     'https://developer.api.autodesk.com/authentication/v2/authorize',
-  tokenUrl:    'https://developer.api.autodesk.com/authentication/v2/token',
-  scope:       'data:read'
+const APS='https://developer.api.autodesk.com';
+const OAUTH={
+  redirectUri:window.location.origin+window.location.pathname.replace(/\/$/,''),
+  authUrl:'https://developer.api.autodesk.com/authentication/v2/authorize',
+  tokenUrl:'https://developer.api.autodesk.com/authentication/v2/token',
+  scope:'data:read account:read offline_access'
 };
 
-// PKCE helpers
-async function sha256(plain) {
-  const enc = new TextEncoder().encode(plain);
-  const hash = await crypto.subtle.digest('SHA-256', enc);
-  return hash;
+// ─── PKCE ─────────────────────────────────────────────────────────────────────
+async function sha256(s){return crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));}
+function b64url(buf){return btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function randStr(n=64){const a=new Uint8Array(n);crypto.getRandomValues(a);return b64url(a);}
+async function startPKCE(cid){
+  if(!cid)throw new Error('Please enter your APS Client ID first.');
+  const v=randStr(64),c=b64url(await sha256(v));
+  sessionStorage.setItem('pkce_v',v);sessionStorage.setItem('pkce_c',cid);
+  window.location.href=OAUTH.authUrl+'?response_type=code&client_id='+encodeURIComponent(cid)
+    +'&redirect_uri='+encodeURIComponent(OAUTH.redirectUri)
+    +'&scope='+encodeURIComponent(OAUTH.scope)
+    +'&code_challenge='+c+'&code_challenge_method=S256&nonce='+randStr(16);
 }
-function base64urlencode(buf) {
-  return btoa(String.fromCharCode(...new Uint8Array(buf)))
-    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+async function handleCallback(code){
+  const v=sessionStorage.getItem('pkce_v'),id=sessionStorage.getItem('pkce_c');
+  if(!v||!id)throw new Error('Session expired — please sign in again.');
+  sessionStorage.removeItem('pkce_v');sessionStorage.removeItem('pkce_c');
+  const r=await fetch(OAUTH.tokenUrl,{method:'POST',
+    headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:new URLSearchParams({grant_type:'authorization_code',client_id:id,
+      redirect_uri:OAUTH.redirectUri,code,code_verifier:v})});
+  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.errorMessage||e.error_description||r.statusText);}
+  const d=await r.json();
+  return{token:d.access_token,clientId:id,refreshToken:d.refresh_token||null};
 }
-function randomString(len=64) {
-  const arr = new Uint8Array(len);
-  crypto.getRandomValues(arr);
-  return base64urlencode(arr);
+async function fetchUserProfile(token){
+  try{
+    const r=await fetch('https://developer.api.autodesk.com/userprofile/v1/users/@me',{headers:{Authorization:'Bearer '+token}});
+    if(!r.ok)return{name:'',userId:''};
+    const d=await r.json();
+    return{
+      name:(d.firstName||'')+(d.lastName?' '+d.lastName:''),
+      userId:d.autodeskId||d.userId||''
+    };
+  }catch(e){return{name:'',userId:''};}
 }
-async function startPKCE(clientId) {
-  if (!clientId) throw new Error('Please enter your APS Client ID first.');
-  const verifier  = randomString(64);
-  const challenge = base64urlencode(await sha256(verifier));
-  sessionStorage.setItem('pkce_verifier', verifier);
-  sessionStorage.setItem('pkce_client_id', clientId);
-  const url = OAUTH.authUrl
-    + '?response_type=code'
-    + '&client_id='       + encodeURIComponent(clientId)
-    + '&redirect_uri='    + encodeURIComponent(OAUTH.redirectUri)
-    + '&scope='           + encodeURIComponent(OAUTH.scope)
-    + '&code_challenge='  + challenge
-    + '&code_challenge_method=S256'
-    + '&nonce='           + randomString(16);
-  window.location.href = url;
+// ─── MEMBER PROJECT PRE-FILTER ────────────────────────────────────────────────
+// GET /project/v1/hubs/{hubId}/projects returns ONLY projects the signed-in
+// user is a member of. One paginated call upfront lets us skip topFolders on
+// every project the user can't access — saves one API call per non-member project
+// and immediately marks them "No Access" without burning scan time.
+async function getMemberProjectIds(hubId){
+  const ids=new Set();
+  let offset=0,fetched=0,total=Infinity;
+  while(offset<total){
+    try{
+      const d=await api(`/project/v1/hubs/${hubId}/projects?page[number]=${offset}&page[limit]=100`);
+      const items=d.data||[];
+      items.forEach(p=>ids.add(p.id));         // DM project IDs already have b. prefix
+      total=d.meta?.pagination?.totalResults??items.length+offset;
+      const lim=d.meta?.pagination?.pageSize??100;
+      offset+=lim;
+      if(items.length===0)break;
+    }catch(e){break;}  // If this call fails, proceed without pre-filter (degrade gracefully)
+  }
+  return ids;
 }
-async function handleCallback(code) {
-  const verifier  = sessionStorage.getItem('pkce_verifier');
-  const clientId  = sessionStorage.getItem('pkce_client_id');
-  if (!verifier || !clientId) throw new Error('Session expired — please try signing in again.');
-  sessionStorage.removeItem('pkce_verifier');
-  sessionStorage.removeItem('pkce_client_id');
-  const r = await fetch(OAUTH.tokenUrl, {
-    method: 'POST',
-    headers: {'Content-Type':'application/x-www-form-urlencoded'},
-    body: new URLSearchParams({
-      grant_type:    'authorization_code',
-      client_id:     clientId,
-      redirect_uri:  OAUTH.redirectUri,
-      code,
-      code_verifier: verifier
+
+// ─── 2-LEGGED AUTH ────────────────────────────────────────────────────────────
+// Client Secret is typed by the user, held in S.clientSecret (JS heap only),
+// never written to localStorage, sessionStorage, or the DOM after submission.
+// Cleared automatically when the tab closes. The token is session-only.
+async function connectTwoLegged(clientId,clientSecret){
+  if(!clientId||!clientSecret)throw new Error('Both Client ID and Client Secret are required.');
+  const r=await fetch('https://developer.api.autodesk.com/authentication/v2/token',{
+    method:'POST',
+    headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:new URLSearchParams({
+      grant_type:'client_credentials',
+      client_id:clientId,
+      client_secret:clientSecret,
+      scope:'data:read account:read'
     })
   });
-  if (!r.ok) {
-    const e = await r.json().catch(()=>({}));
-    throw new Error(e.errorMessage || e.error_description || r.status+' '+r.statusText);
+  if(!r.ok){
+    const e=await r.json().catch(()=>({}));
+    throw new Error(e.error_description||e.errorMessage||r.statusText);
   }
-  const d = await r.json();
-  return { token: d.access_token, clientId };
-}
-async function fetchUserName(token) {
-  try {
-    const r = await fetch('https://developer.api.autodesk.com/userprofile/v1/users/@me',
-      {headers:{Authorization:'Bearer '+token}});
-    if (!r.ok) return '';
-    const d = await r.json();
-    return (d.firstName||'') + (d.lastName ? ' '+d.lastName : '');
-  } catch(e) { return ''; }
+  const d=await r.json();
+  S.token=d.access_token;
+  S.clientId=clientId;
+  S.clientSecret=clientSecret;  // memory only — cleared on tab close
+  S.authMode='2-legged';
+  S.uname='App credentials (2-legged)';
+  // Token only in sessionStorage — dies when tab closes
+  sessionStorage.setItem('rvt_2l_tok',d.access_token);
+  localStorage.setItem('rvt_client_id',clientId);
+  S.tokenIssuedAt=Date.now();
 }
 
-// Extension types that indicate a Revit Cloud Workshared (C4R) model
-const C4R_TYPES = [
-  'versions:autodesk.bim360:C4RModel',
-  'versions:autodesk.a360:C4RModel',
-  'versions:autodesk.core:C4RModel'
-];
+// ─── TOKEN REFRESH ────────────────────────────────────────────────────────────
+// Called before each group starts (after the first). Proactively refreshes the
+// token when it is >50 minutes old (APS tokens expire at 60 min).
+//   2-legged: silent automatic re-auth using stored credentials.
+//   3-legged with refresh token: uses refresh_token grant — no user interaction.
+//   3-legged without refresh token: continues; api() 401 handler will catch expiry.
+async function refreshSessionIfNeeded(force=false){
+  if(!S.tokenIssuedAt)return;
+  const ageMin=(Date.now()-S.tokenIssuedAt)/60000;
+  if(!force&&ageMin<50)return; // still fresh
 
-const S = {
+  S.msg='Refreshing session…';renderProgress();
+
+  if(S.authMode==='2-legged'){
+    try{
+      await connectTwoLegged(S.clientId,S.clientSecret);
+      RateLimit.calls=[];
+      S.tokenExpired=false;
+    }catch(e){
+      S.error='Token refresh failed: '+e.message+'. Scan stopped.';
+      S.aborted=true;
+    }
+    return;
+  }
+
+  // 3-legged — use refresh token if we have one
+  if(S.refreshToken){
+    try{
+      const r=await fetch(OAUTH.tokenUrl,{
+        method:'POST',
+        headers:{'Content-Type':'application/x-www-form-urlencoded'},
+        body:new URLSearchParams({
+          grant_type:'refresh_token',
+          client_id:S.clientId,
+          refresh_token:S.refreshToken,
+        })
+      });
+      if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error_description||e.errorMessage||r.statusText);}
+      const d=await r.json();
+      S.token=d.access_token;
+      if(d.refresh_token)S.refreshToken=d.refresh_token; // rolling refresh token
+      S.tokenIssuedAt=Date.now();
+      RateLimit.calls=[];
+      S.tokenExpired=false;
+    }catch(e){
+      // Refresh failed — continue; api() 401 handler will stop the scan if needed
+      console.warn('Token refresh failed:',e.message);
+    }
+    return;
+  }
+
+  // No refresh token (user authenticated before offline_access was added) —
+  // continue scanning. api() 401 handler will catch expiry if it occurs.
+}
+
+const C4R_TYPES=['versions:autodesk.bim360:C4RModel','versions:autodesk.a360:C4RModel','versions:autodesk.core:C4RModel'];
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+const S={
   phase:'setup',
-  token:localStorage.getItem('rvt_tok')||'',
+  token:localStorage.getItem('rvt_tok')||sessionStorage.getItem('rvt_2l_tok')||'',
+  authMode:sessionStorage.getItem('rvt_2l_tok')?'2-legged':'3-legged',
+  clientSecret:'',  // held in memory only — never stored anywhere
   uname:localStorage.getItem('rvt_uname')||'',
+  userId:localStorage.getItem('rvt_userid')||'',
   clientId:localStorage.getItem('rvt_client_id')||'',
-  hubs:[],hub:null,
-  projects:[],
+  hubs:[],hub:null,projects:[],groups:[],currentGroup:null,
   scanning:false,aborted:false,
   pct:0,msg:'',pdone:0,ptotal:0,
+  scanStart:null,eta:null,
   expanded:new Set(),
-  search:'',statusFilter:['all'],
+  search:'',statusFilters:new Set(),filterOpen:false,
   sortCol:'risk',sortDir:-1,
+  // ── STATUS LOGIC ──────────────────────────────────────────────────────────
+  // threshold = the critical cutoff year (user picks 2021 or 2022)
+  //   Critical : version <= threshold
+  //   Outdated : threshold+1 <= version <= threshold+2
+  //   Current  : version >= threshold+3
   threshold:parseInt(localStorage.getItem('rvt_thresh')||'2021'),
-  error:null
+  error:null,
+  tokenExpired:false,
+  tokenIssuedAt:null,   // Date.now() when token was issued — used for proactive refresh
+  refreshToken:null     // 3-legged only, from offline_access scope
 };
 
-const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-const fDate = iso => iso ? new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
-const isAtRisk = v => v && parseInt(v) <= S.threshold;
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const fDate=iso=>iso?new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
 
-async function api(path) {
-  const r = await fetch(APS + path, {headers:{Authorization:'Bearer '+S.token}});
-  if (!r.ok) throw new Error(r.status+' '+r.statusText);
-  return r.json();
+// Is a file version at or below the critical threshold?
+const isAtRisk=v=>!!v&&v!=='MIXED'&&!isNaN(parseInt(v))&&parseInt(v)<=S.threshold;
+
+// Project status — fully threshold-relative, recalculated on every render
+function pStatus(p){
+  if(p.pending) return'pending';    // not yet picked up by a scan worker
+  if(p.scanning)return'scanning';   // actively being scanned right now
+  if(p.noAccess)return'no-access';
+  if(!p.c4rVersion)return'no-c4r';
+  if(p.c4rVersion==='MIXED')return'mixed';
+  const v=parseInt(p.c4rVersion);
+  if(isNaN(v))return'no-c4r';
+  if(v<=S.threshold)return'critical';       // at or below threshold
+  if(v<=S.threshold+2)return'warn';          // threshold+1 or threshold+2 = outdated
+  return'ok';                                 // threshold+3 or newer = current
 }
 
-function vClass(v, gl) {
-  if (!v) return 'v-none';
-  const n=parseInt(v), l=parseInt(gl||v);
-  if (n>=l)    return 'v-ok';
-  if (n===l-1) return 'v-1';
-  if (n===l-2) return 'v-2';
-  return 'v-old';
+// Badge colour — exactly mirrors pStatus tiers
+function vClass(v){
+  if(!v||v==='MIXED'||isNaN(parseInt(v)))return'v-none';
+  const n=parseInt(v);
+  if(n<=S.threshold)return'v-risk';          // red
+  if(n<=S.threshold+2)return'v-warn';        // amber
+  return'v-ok';                               // green
 }
 
-function hubLatest() {
-  return S.projects.reduce((mx,p) => {
-    if (!p.c4rVersion) return mx;
-    return parseInt(p.c4rVersion) > parseInt(mx||'0') ? p.c4rVersion : mx;
-  }, null);
+// ETA display
+function fmtEta(s){
+  if(!s||s<5)return'';
+  if(s<60)return`~${s}s remaining`;
+  const m=Math.floor(s/60),r=s%60;
+  return r>=5?`~${m}m ${r}s remaining`:`~${m}m remaining`;
 }
 
-function pStatus(p) {
-  if (p.scanning)    return 'scanning';
-  if (!p.c4rVersion) return 'no-c4r';
-  if (isAtRisk(p.c4rVersion)) return 'critical';
-  const gl = hubLatest();
-  if (gl && parseInt(p.c4rVersion) < parseInt(gl)-1) return 'warn';
-  return 'ok';
+// Fast progress update — writes only to 5 stable DOM elements, no innerHTML rebuild.
+// Called from the scan interval so the page stays responsive between project completions.
+function renderProgress(){
+  const g=id=>document.getElementById(id);
+  const pf=g('spfill'),pp=g('spct'),sm=g('smsg'),se=g('seta'),ss=g('sstats');
+  if(pf)pf.style.width=S.pct+'%';
+  if(pp)pp.textContent=S.pct+'%';
+  if(sm)sm.textContent=S.msg||'';
+  if(se)se.textContent=fmtEta(S.eta)||'';
+  const rl=RateLimit.calls.length;const lim=RateLimit.limit();
+  const rlPct=Math.round((rl/lim)*100);
+  if(ss)ss.textContent=`${S.pdone} of ${S.ptotal} done`+(rlPct>70?` · API load ${rlPct}%`:'');
+  // Update the currently-scanning group's mini progress elements
+  const cg=S.currentGroup;
+  if(cg){
+    const gf=g('gpfill-'+cg.id),gs=g('gpstats-'+cg.id),ge=g('gpeta-'+cg.id);
+    const pct=cg.ptotal>0?Math.round((cg.pdone/cg.ptotal)*100):0;
+    if(gf)gf.style.width=pct+'%';
+    const ac=cg.activeNames?.size||0;
+    if(gs)gs.textContent=`${cg.pdone} done · ${ac} scanning · ${cg.ptotal-cg.pdone-ac} queued`;
+    if(ge)ge.textContent=fmtEta(cg.eta)||'';
+  }
 }
 
-// ─── SCAN FOLDER ─────────────────────────────────────────────────────────────
-async function scanFolder(projectId, folderId, pathLabel, c4rFiles, cloudFiles) {
-  if (S.aborted) return;
-  let items;
-  try {
-    const d = await api('/data/v1/projects/'+projectId+'/folders/'+folderId+'/contents');
-    items = d.data || [];
-  } catch(e) { return; }
+// At-risk file count — always computed dynamically so threshold slider is instant
+const atRiskCount=p=>(p.c4rFiles||[]).filter(f=>isAtRisk(f.version)).length;
 
-  const folders = items.filter(i => i.type==='folders');
-  const rvts    = items.filter(i =>
-    i.type==='items' &&
-    i.attributes?.displayName?.toLowerCase().endsWith('.rvt')
-  );
+// ─── RATE LIMITER ─────────────────────────────────────────────────────────────
+// Proactive back-pressure: track calls in the last 60s and insert a brief pause
+// when approaching the APS DM limit (~55 req/min for 3-legged, ~190 for 2-legged).
+// This prevents 429 cascades that compound into multi-second stalls.
+const RateLimit={
+  calls:[],        // timestamps of recent API calls
+  limit(){return S.authMode==='2-legged'?180:100;}, // 3-legged: 100/min (actual ~150), 2-legged: 180/min
+  async throttle(){
+    const now=Date.now();
+    // Remove calls older than 60s from the window
+    while(this.calls.length>0&&now-this.calls[0]>60000)this.calls.shift();
+    if(this.calls.length>=this.limit()){
+      // Window is full — wait until the oldest call ages out
+      const wait=60000-(now-this.calls[0])+50;
+      await new Promise(res=>setTimeout(res,wait));
+      // After waiting, prune again
+      const now2=Date.now();
+      while(this.calls.length>0&&now2-this.calls[0]>60000)this.calls.shift();
+    }
+    this.calls.push(Date.now());
+  }
+};
 
-  for (const item of rvts) {
-    if (S.aborted) return;
-    S.msg = item.attributes.displayName;
-    render();
+// Per-request timeout (ms). A hung fetch() with no server response would otherwise
+// block a scan worker indefinitely — AbortController cuts it loose after 30s so the
+// BFS moves on rather than burning the entire 5-minute project timeout.
+const API_TIMEOUT_MS=30000;
 
-    let version = null, isC4R = false, modTime = null, modBy = null;
-
-    try {
-      const vd = await api('/data/v1/projects/'+projectId+'/items/'+encodeURIComponent(item.id)+'/versions');
-      const latest = (vd.data||[])[0];
-      if (latest) {
-        const extType = latest.attributes?.extension?.type || '';
-        // Check if this is a C4R (cloud workshared) model
-        isC4R = C4R_TYPES.some(t => extType.toLowerCase().includes('c4r'));
-        // C4R version comes directly from revitProjectVersion
-        const rv = latest.attributes?.extension?.data?.revitProjectVersion;
-        if (rv) version = String(rv);
-        modTime = latest.attributes?.lastModifiedTime;
-        modBy   = latest.attributes?.lastModifiedUserName;
+async function api(path,retries=3){
+  for(let attempt=0;attempt<=retries;attempt++){
+    await RateLimit.throttle(); // proactive back-pressure — pause if approaching rate limit
+    const ctrl=new AbortController();
+    const timer=setTimeout(()=>ctrl.abort(),API_TIMEOUT_MS);
+    let r;
+    try{
+      r=await fetch(APS+path,{headers:{Authorization:'Bearer '+S.token},signal:ctrl.signal});
+    }catch(err){
+      clearTimeout(timer);
+      // AbortError = request timed out — treat as transient and retry
+      if(err.name==='AbortError'){
+        if(attempt<retries){await new Promise(res=>setTimeout(res,1000*(attempt+1)));continue;}
+        const e=new Error('Request timed out after '+API_TIMEOUT_MS+'ms ('+path+')');e.status=408;throw e;
       }
-    } catch(e) {}
+      throw err;
+    }
+    clearTimeout(timer);
 
-    const fileObj = {
-      id: item.id,
-      name: item.attributes.displayName,
-      path: pathLabel,
-      version,
-      isC4R,
-      modTime,
-      modBy
-    };
+    // 401 = token expired — try to refresh once before giving up
+    if(r.status===401){
+      if(attempt===0){
+        // First attempt: try to refresh the token silently then retry the request
+        try{
+          await refreshSessionIfNeeded(true); // force=true bypasses the age check
+          clearTimeout(timer);
+          continue; // retry with the new token
+        }catch(refreshErr){
+          // Refresh failed — now abort
+        }
+      }
+      S.tokenExpired=true;
+      S.aborted=true;
+      S.scanning=false;
+      if(S._scanTimer)clearInterval(S._scanTimer);
+      S.error='Session expired — token could not be refreshed. Please sign out and sign back in to continue scanning.';
+      render();
+      const e=new Error('401 token expired');e.status=401;throw e;
+    }
+    if(r.status===429){
+      if(attempt<retries){await new Promise(res=>setTimeout(res,1500*Math.pow(2,attempt)));continue;}
+      const e=new Error('Rate limited ('+path+')');e.status=429;throw e;
+    }
+    if(r.status===403||r.status===404){
+      const e=new Error(r.status+' ('+path+')');e.status=r.status;throw e;
+    }
+    if(r.status>=500&&attempt<retries){
+      await new Promise(res=>setTimeout(res,1000*(attempt+1)));continue;
+    }
+    if(!r.ok){const e=new Error(r.status+' '+r.statusText+' ('+path+')');e.status=r.status;throw e;}
+    return r.json();
+  }
+}
 
-    if (isC4R) {
-      c4rFiles.push(fileObj);
-    } else {
-      cloudFiles.push(fileObj);
+// ─── PAGINATED FETCH — follows links.next for DM API folder contents ────────────
+// The /folders/{id}/contents endpoint returns max ~200 items per page.
+// links.next.href (when present) is a full URL — strip the base to reuse api().
+async function apiAll(path){
+  let items=[];
+  let next=path;
+  while(next){
+    try{
+      const d=await api(next);
+      const page=d.data||[];for(let i=0;i<page.length;i++)items.push(page[i]);
+      const href=d.links?.next?.href||null;
+      if(href){
+        try{
+          // Normalise the next-page URL — strip the host if present, keep path+query
+          const u=new URL(href,APS);
+          next=u.pathname+u.search;
+        }catch(e){next=null;}
+      }else{next=null;}
+    }catch(e){
+      // 403/404 are definitive — re-throw so caller can distinguish no-access from empty
+      if(e.status===403||e.status===404)throw e;
+      // Transient error mid-pagination — return what we have rather than losing everything
+      break;
     }
   }
-
-  for (const f of folders) {
-    if (S.aborted) return;
-    const fname = f.attributes.displayName || f.attributes.name || '';
-    await scanFolder(projectId, f.id, pathLabel+' / '+fname, c4rFiles, cloudFiles);
-  }
+  return items;
 }
 
-function deriveProject(p) {
-  const c4r = p.c4rFiles || [];
-  const cloud = p.cloudFiles || [];
-  // C4R version: if all C4R files agree on one version, that's the project version.
-  // If somehow multiple versions exist (rare edge case after partial upgrades),
-  // surface them all so the user can see the discrepancy — don't hide it.
-  const c4rVersions = [...new Set(c4r.map(f=>f.version).filter(Boolean))];
-  p.c4rVersion = c4rVersions.length === 1 ? c4rVersions[0] : (c4rVersions.length > 1 ? 'MIXED' : null);
-  p.c4rVersions = c4rVersions; // all unique versions found in C4R files
-  p.c4rCount  = c4r.length;
-  p.cloudCount = cloud.length;
-  p.atRisk = c4r.filter(f => isAtRisk(f.version)).length;
-  const mods = [...c4r,...cloud].map(f=>f.modTime).filter(Boolean).sort();
-  p.lastMod = mods[mods.length-1] || null;
+// ─── ACC ADMIN API — ALL PROJECTS ─────────────────────────────────────────────
+// Returns ALL active projects regardless of user membership.
+// Requires account:read scope + Account Admin role in the hub.
+async function getAllAdminProjects(accountId){
+  let all=[],offset=0,total=Infinity;
+  while(offset<total){
+    let d;
+    try{d=await api(`/construction/admin/v1/accounts/${accountId}/projects?limit=100&offset=${offset}&includeDeleted=false`);}
+    catch(e){
+      if(e.message.startsWith('401')||e.message.startsWith('403'))
+        throw new Error('Admin API access denied. Make sure: (1) your APS app has account:read scope, (2) you signed in after adding that scope, and (3) you are an Account Admin in this hub.');
+      throw e;
+    }
+    const results=d.results||d.data||[];
+    all=all.concat(results);
+    total=d.pagination?.totalResults??all.length;
+    offset+=(d.pagination?.limit??100);
+    if(results.length===0)break;
+  }
+  return all;
+}
+
+// ─── CONCURRENCY POOL ─────────────────────────────────────────────────────────
+// Runs `tasks` with at most `limit` in flight at once.
+// Each task is a zero-arg async function; results are returned in order.
+async function pool(tasks,limit){
+  const results=new Array(tasks.length);
+  let next=0;
+  async function worker(){
+    while(next<tasks.length){
+      const i=next++;
+      try{results[i]=await tasks[i]();}catch(e){results[i]=undefined;}
+      // Yield between tasks so all workers get to start before any worker races ahead.
+      // Without this, a worker processing synchronous (no-access) tasks can consume
+      // the entire queue before parallel workers get a chance to pick up real work.
+      await new Promise(res=>setTimeout(res,0));
+    }
+  }
+  await Promise.all(Array.from({length:Math.min(limit,tasks.length)},worker));
+  return results;
+}
+
+// ─── SCAN ENGINE ──────────────────────────────────────────────────────────────
+// Iterative BFS folder walk — no recursion, no in-folder parallelism.
+// A setTimeout(0) before every folder fetch creates a real macrotask boundary
+// so the browser can paint, handle input, and fire the render interval between
+// every folder. This keeps the page fully responsive on deep/large projects.
+//
+// Project-level: 2 projects in parallel via pool().
+// Folder-level:  sequential BFS within each project (no nested concurrency).
+// File-level:    sequential within each folder.
+const GROUP_SIZE=100;   // projects per group — balances token lifetime vs progressive results
+const CONCURRENCY={
+  VERSION_FETCHES:8,  // 8 concurrent version calls — safe with rate limiter at 100/min (2 projects × 8 = 16 peak)
+  YIELD_EVERY:5,      // yield to browser every N folders
+};
+
+function buildGroups(projects){
+  const groups=[];
+  for(let i=0;i<projects.length;i+=GROUP_SIZE){
+    const end=Math.min(i+GROUP_SIZE,projects.length);
+    groups.push({
+      id:'g'+groups.length,
+      label:`Group ${groups.length+1} · Projects ${i+1}–${end}`,
+      start:i,end,
+      status:'pending',   // 'pending'|'scanning'|'done'
+      expanded:groups.length===0,  // first group expanded by default
+      pdone:0,
+      ptotal:end-i,
+      scanStart:null,
+      eta:null,
+      activeNames:new Set(),
+    });
+  }
+  return groups;
+}
+
+// ─── FOLDER SCAN CONFIGURATION ────────────────────────────────────────────────
+// ACC projects have a well-defined, shallow structure. RCW models never appear
+// in certain top-level system folders. Scanning them wastes API calls.
+//
+// Sources: Autodesk best-practice docs, Design Collaboration setup guides,
+// and the ACC folder taxonomy enforced by the platform itself.
+// Folders to skip at ANY depth.
+// Top-level: ACC system folders where Revit models literally cannot be stored.
+// Sub-level: administrative, archival, and process folders that follow naming
+//   conventions indicating they contain PDFs, DWGs, images, or documents — never
+//   active Cloud Workshared models.
+// Safe to skip at any depth because RCW models live in team/discipline folders,
+// not in process/admin/archive folders regardless of their nesting level.
+const SKIP_FOLDERS=new Set([
+  // ACC system folders (created by the platform, PDF/workflow only)
+  'plans','photos','submittals','rfis','issues','closeout','reports',
+  'transmittals','markups','specifications','correspondence','meetings','contracts',
+  // Archive / obsolete — never contain active models
+  'archive','archives','old','superseded','backup','backups','deprecated',
+  'previous','history','historical','legacy','obsolete',
+  // Admin and process — never contain active models
+  'admin','administration','templates',
+  // Media/document folders
+  'images','pictures','photos & videos','video','videos',
+  'documents','doc','docs','sheets','drawings published',
+  // Workflow folders
+  'incoming','outgoing','for review','for approval','for information',
+  'issued','superseded drawings','record drawings',
+]);
+
+// RCW models in real projects are never more than 4 levels deep from topFolders.
+// ACC best-practice guidance explicitly discourages deep nesting due to path
+// length limits. Depth 4 covers: topFolder / discipline / phase / subphase / model.rvt
+const MAX_FOLDER_DEPTH=4;
+
+// Priority ordering for BFS — scan high-value folders first so results appear
+// quickly and the project has useful data even if it times out on tail folders.
+const FOLDER_PRIORITY=(name)=>{
+  const n=name.toLowerCase();
+  if(n==='project files')return 0;   // working models — highest priority
+  if(n==='shared')       return 1;   // Design Collaboration shared/consumed models
+  // Known discipline names — scan before generic/unknown folders
+  const disciplines=['architecture','architectural','structure','structural',
+    'mep','mechanical','electrical','plumbing','civil','interior','interiors',
+    'landscape','facade','fire','it','technology'];
+  if(disciplines.some(d=>n.includes(d)))return 2;
+  return 3;                           // everything else — scan last
+};
+
+async function scanProject(proj,hub){
+  if(S.aborted)return;
+  proj.c4rFiles=[];
+  proj.cloudFiles=[];
+  proj.failedFiles=[];
+  proj.skippedFolders=0;
+  proj.skippedTopFolders=0; // top-level folders skipped as known non-RVT containers
+
+  // ── PASS 1: BFS folder walk — collect all .rvt items, ZERO version calls ──────
+  // IMPORTANT: C4R detection uses VERSION response (Pass 2), not item-level type.
+  // Older BIM 360 files often show item type 'File' even when they are C4RModel.
+
+  let topFolders=[];
+  try{
+    const td=await api('/project/v1/hubs/'+hub.id+'/projects/'+proj.id+'/topFolders');
+    topFolders=td.data||[];
+  }catch(e){
+    if(e.status===403)proj.noAccess=true;
+    else proj.scanError=e.message;
+    return;
+  }
+
+  // ── Filter and prioritise top-level folders ────────────────────────────────
+  const scannable=[];
+  for(const f of topFolders){
+    const name=(f.attributes.displayName||f.attributes.name||'').trim();
+    if(SKIP_FOLDERS.has(name.toLowerCase())){
+      proj.skippedTopFolders++;
+      continue;
+    }
+    scannable.push({id:f.id,path:name,depth:1,priority:FOLDER_PRIORITY(name)});
+  }
+  // Sort by priority so Project Files / discipline folders scan first
+  scannable.sort((a,b)=>a.priority-b.priority);
+
+  const queue=[...scannable];
+  const visitedFolders=new Set(topFolders.map(f=>f.id));
+  const allRvtItems=[];
+  let foldersSinceYield=0;
+
+  while(queue.length>0&&!S.aborted){
+    const{id:folderId,path:pathLabel,depth}=queue.shift();
+
+    if(++foldersSinceYield>=CONCURRENCY.YIELD_EVERY){
+      foldersSinceYield=0;
+      await new Promise(res=>setTimeout(res,0));
+    }
+
+    let items=[];
+    try{items=await apiAll('/data/v1/projects/'+proj.id+'/folders/'+folderId+'/contents');}
+    catch(e){if(e.status===403)proj.skippedFolders++;continue;}
+
+    // Only descend further if under the depth limit
+    if(depth<MAX_FOLDER_DEPTH){
+      const subFolders=[];
+      for(const f of items.filter(i=>i.type==='folders')){
+        if(S.aborted)break;
+        if(visitedFolders.has(f.id))continue;
+        visitedFolders.add(f.id);
+        const fname=f.attributes.displayName||f.attributes.name||'';
+        // Apply the same skip list at every depth — archive/admin/process
+        // folders are non-RVT containers regardless of where they appear
+        if(SKIP_FOLDERS.has(fname.toLowerCase())){
+          proj.skippedTopFolders++; // reuse counter — "structural skips" at any depth
+          continue;
+        }
+        subFolders.push({
+          id:f.id,
+          path:pathLabel+' / '+fname,
+          depth:depth+1,
+          priority:FOLDER_PRIORITY(fname),
+        });
+      }
+      // Priority-sort siblings before adding to front of queue
+      // (push to front so we finish the current branch before moving to next top folder)
+      subFolders.sort((a,b)=>a.priority-b.priority);
+      queue.unshift(...subFolders);
+    }
+
+    // Collect .rvt files — accept both 'items' and 'documents' types
+    const isRvt=i=>{
+      const name=i.attributes?.displayName||i.attributes?.name||'';
+      return(i.type==='items'||i.type==='documents')&&name.toLowerCase().endsWith('.rvt');
+    };
+    for(const item of items.filter(isRvt)){
+      allRvtItems.push({item,path:pathLabel});
+    }
+  }
+  if(S.aborted)return;
+
+  // No .rvt files found anywhere — project is No RCW, done immediately
+  if(allRvtItems.length===0)return;
+
+  // ── PASS 2: Version calls — authoritative C4R detection ────────────────────
+  //
+  // Conservative item-level RC skip:
+  //   If item.attributes.extension.type is exactly 'items:autodesk.bim360:File'
+  //   (a known non-C4R type), skip the version call and add directly as RC.
+  //   Items with ambiguous, missing, or C4R-containing types ALWAYS get version calls.
+  //
+  //   Safety condition: we only apply the skip after at least 3 confirmed C4R items
+  //   have been version-checked in this project, proving the item-type taxonomy is
+  //   reliable for this hub. Before that threshold, all items get version calls.
+  //   This prevents false negatives on hubs where item types may not be trustworthy.
+
+  const SKIP_THRESHOLD=1; // after 1 confirmed C4R file, trust item-level type for RC classification
+  let confirmedC4RCount=0;
+
+  // Items whose item-level type clearly indicates non-C4R (safe to skip)
+  const isDefinitelyRC=itemType=>itemType==='items:autodesk.bim360:file'
+    ||itemType==='items:autodesk.bim360:document'
+    ||itemType==='items:autodesk.bim360:transmittal';
+
+  await pool(allRvtItems.map(({item,path:pathLabel})=>async()=>{
+    if(S.aborted)return;
+    const name=item.attributes?.displayName||item.attributes?.name||'';
+    const rawItemType=(item.attributes?.extension?.type||'').toLowerCase();
+
+    // Conservative item-level skip — only once enough C4R files are confirmed
+    if(confirmedC4RCount>=SKIP_THRESHOLD&&isDefinitelyRC(rawItemType)){
+      proj.cloudFiles.push({
+        id:item.id,name,path:pathLabel,version:null,isC4R:false,
+        modTime:item.attributes?.lastModifiedTime||null,modBy:null
+      });
+      return;
+    }
+
+    let version=null,isC4R=false,modTime=null,modBy=null,versionFailed=false;
+    try{
+      const vd=await api('/data/v1/projects/'+proj.id+'/items/'+encodeURIComponent(item.id)+'/versions');
+      const latest=(vd.data||[])[0];
+      if(latest){
+        const ext=latest.attributes?.extension?.type||'';
+        isC4R=ext.toLowerCase().includes('c4r');
+        const rv=latest.attributes?.extension?.data?.revitProjectVersion;
+        if(rv)version=String(rv);
+        modTime=latest.attributes?.lastModifiedTime;
+        modBy=latest.attributes?.lastModifiedUserName;
+      }
+    }catch(e){
+      versionFailed=true;
+    }
+
+    if(versionFailed){
+      proj.failedFiles.push({
+        id:item.id,name,path:pathLabel,
+        modTime:item.attributes?.lastModifiedTime||null
+      });
+      return;
+    }
+
+    if(isC4R)confirmedC4RCount++; // safe — JS is single-threaded; pool workers interleave at awaits
+    const f={id:item.id,name,path:pathLabel,version,isC4R,modTime,modBy};
+    if(isC4R)proj.c4rFiles.push(f);else proj.cloudFiles.push(f);
+  }),CONCURRENCY.VERSION_FETCHES);
+}
+
+function deriveProject(p){
+  const c4r=p.c4rFiles||[],cloud=p.cloudFiles||[];
+  const vers=[...new Set(c4r.map(f=>f.version).filter(Boolean))];
+  p.c4rVersion=vers.length===1?vers[0]:vers.length>1?'MIXED':null;
+  p.c4rVersions=vers;
+  p.c4rCount=c4r.length;
+  p.cloudCount=cloud.length;
+  // atRisk is NOT stored — always computed dynamically via atRiskCount(p)
+  const mods=[...c4r,...cloud,...(p.failedFiles||[])].map(f=>f.modTime).filter(Boolean).sort();
+  p.lastMod=mods[mods.length-1]||null;
   return p;
 }
 
-// ─── HUB SCAN ────────────────────────────────────────────────────────────────
-async function scanHub(hub) {
-  S.hub=hub; S.projects=[]; S.scanning=true; S.aborted=false;
-  S.pct=0; S.pdone=0; S.error=null; S.phase='dash';
+// ─── HUB SCAN ─────────────────────────────────────────────────────────────────
+async function scanHub(hub){
+  S.hub=hub;S.projects=[];S.scanning=true;S.aborted=false;
+  S.pct=0;S.pdone=0;S.error=null;S.phase='dash';S.tokenExpired=false;
+  S.scanStart=Date.now();S.eta=null;S.activeNames=new Set();
+  RateLimit.calls=[];  // reset rate-limit window for new scan
   render();
 
-  let raw=[];
-  try {
-    const d = await api('/project/v1/hubs/'+hub.id+'/projects');
-    raw = d.data||[];
-  } catch(e) { S.error='Could not load projects: '+e.message; S.scanning=false; render(); return; }
+  const accountId=hub.id.replace(/^b\./,'');
+  let adminProjects=[];
+  try{adminProjects=await getAllAdminProjects(accountId);}
+  catch(e){S.error=e.message;S.scanning=false;render();return;}
 
-  S.ptotal=raw.length;
-  S.projects=raw.map(p=>({
-    id:p.id, name:p.attributes.name||p.id,
-    accUrl:makeAccUrl(hub.id,p.id),
-    scanning:true, c4rFiles:[], cloudFiles:[],
-    c4rVersion:null, c4rVersions:[], c4rCount:0, cloudCount:0,
-    atRisk:0, lastMod:null
-  }));
+  const active=adminProjects.filter(p=>p.status==='active');
+
+  // For 2-legged (app token): skip member pre-filter entirely — the app has hub-wide
+  // folder access regardless of project membership, which is the whole point of 2-legged.
+  // For 3-legged (user token): pre-filter saves one API call per non-member project.
+  let memberIds=new Set(),hasMemberList=false;
+  if(S.authMode!=='2-legged'){
+    memberIds=await getMemberProjectIds(hub.id);
+    hasMemberList=memberIds.size>0;
+  }
+
+  S.ptotal=active.length;
+  S.projects=active.map(p=>{
+    const dmId='b.'+p.id;
+    const noAccess=hasMemberList&&!memberIds.has(dmId);
+    return{
+      id:dmId,adminId:p.id,
+      name:p.name||p.id,status:p.status,
+      accUrl:`https://acc.autodesk.com/docs/files/projects/${p.id}`,
+      pending:!noAccess,
+      scanning:false,
+      noAccess,
+      c4rFiles:[],cloudFiles:[],
+      c4rVersion:null,c4rVersions:[],c4rCount:0,cloudCount:0,lastMod:null,
+      skippedFolders:0
+    };
+  });
+  S.projects.filter(p=>p.noAccess).forEach(p=>p.pending=false);
+  S.pdone=S.projects.filter(p=>p.noAccess).length;
+  S.ptotal=S.projects.length;
+
+  // Build groups of GROUP_SIZE — groups scan sequentially, parallel within each group
+  S.groups=buildGroups(S.projects);
   render();
 
-  for (let i=0; i<S.projects.length; i++) {
-    if (S.aborted) break;
-    const proj = S.projects[i];
-    S.msg = proj.name;
+  // Progress interval — fast DOM writes only, no full render
+  S._scanTimer=setInterval(()=>{
+    if(!S.scanning){clearInterval(S._scanTimer);return;}
+    const cg=S.currentGroup;
+    S.msg=cg&&cg.activeNames.size?[...cg.activeNames].join(' · '):'';
+    renderProgress();
+  },600);
+
+  const PROJECT_TIMEOUT=300000;
+  // Concurrency: 4 parallel for 2-legged (higher APS limits), 3 for 3-legged
+  const projConcurrency=S.authMode==='2-legged'?4:3;
+
+  // Scan groups SEQUENTIALLY — each group fully completes before the next starts.
+  // Within a group, projConcurrency projects run in parallel.
+  for(const grp of S.groups){
+    if(S.aborted)break;
+    // Proactively refresh the token between groups.
+    // Tokens expire after 60 min; large hubs easily exceed this across multiple groups.
+    if(grp!==S.groups[0]){
+      await refreshSessionIfNeeded();
+      if(S.aborted)break;
+    }
+    grp.status='scanning';
+    grp.scanStart=Date.now();
+    grp.expanded=true;
+    S.currentGroup=grp;
     render();
-    try {
-      const td = await api('/project/v1/hubs/'+hub.id+'/projects/'+proj.id+'/topFolders');
-      const c4rFiles=[], cloudFiles=[];
-      for (const f of (td.data||[])) {
-        if (S.aborted) break;
-        await scanFolder(proj.id, f.id, f.attributes.displayName||'Files', c4rFiles, cloudFiles);
+
+    const groupProjects=S.projects.slice(grp.start,grp.end).filter(p=>p.pending);
+
+    const tasks=groupProjects.map(proj=>async()=>{
+      if(S.aborted)return;
+      proj.pending=false;
+      proj.scanning=true;
+      grp.activeNames.add(proj.name);
+      render(); // flip row from Queued → Scanning immediately
+
+      const timeout=new Promise(res=>setTimeout(()=>{
+        proj.scanError='Timed out after 5 minutes — project may be very large or the API is unresponsive';res();
+      },PROJECT_TIMEOUT));
+      await Promise.race([scanProject(proj,hub),timeout]);
+
+      deriveProject(proj);
+      proj.scanning=false;
+      grp.activeNames.delete(proj.name);
+      grp.pdone++;
+      S.pdone++;
+      S.pct=Math.round((S.pdone/S.ptotal)*100);
+      if(grp.pdone>=2){
+        const elapsed=(Date.now()-grp.scanStart)/1000;
+        grp.eta=Math.round((elapsed/grp.pdone)*(grp.ptotal-grp.pdone));
       }
-      proj.c4rFiles   = c4rFiles;
-      proj.cloudFiles = cloudFiles;
-    } catch(e) { proj.c4rFiles=[]; proj.cloudFiles=[]; }
-    deriveProject(proj);
-    proj.scanning=false;
-    S.pdone=i+1;
-    S.pct=Math.round(((i+1)/S.projects.length)*100);
+      render();
+    });
+
+    await pool(tasks,projConcurrency);
+    grp.status='done';
+    grp.eta=null;
+    S.currentGroup=null;
     render();
   }
-  S.scanning=false;
-  render();
+
+  clearInterval(S._scanTimer);
+  S.scanning=false;S.eta=null;S.msg='';render();
 }
 
-function makeAccUrl(hubId, projectId) {
-  const pid = projectId.replace(/^b\./,'');
-  return `https://acc.autodesk.com/docs/files/projects/${pid}`;
-}
-
-async function loadHubs() {
+async function loadHubs(){
   S.error=null;
-  try {
-    const d = await api('/project/v1/hubs');
-    S.hubs = d.data||[];
-    if (S.hubs.length===1) { scanHub({id:S.hubs[0].id,name:S.hubs[0].attributes.name}); return; }
-    S.phase='hubs'; render();
-  } catch(e) { S.error='Connection failed — check your token. '+e.message; render(); }
+  try{
+    const d=await api('/project/v1/hubs');
+    S.hubs=d.data||[];
+    if(S.hubs.length===1){scanHub({id:S.hubs[0].id,name:S.hubs[0].attributes.name});return;}
+    S.phase='hubs';render();
+  }catch(e){S.error='Connection failed — '+e.message;render();}
 }
 
 // ─── DEMO DATA ────────────────────────────────────────────────────────────────
-function demo() {
-  S.token='demo'; S.uname='Demo User';
+// With default threshold=2021: critical=≤2021, outdated=2022-2023, current=≥2024
+function demo(){
+  S.token='demo';S.uname='Demo User';
   S.hub={id:'h1',name:'Autodesk Forma Hub — West Region'};
-  S.phase='dash'; S.scanning=false; S.pct=100;
+  S.phase='dash';S.scanning=false;S.pct=100;
   S.projects=[
-    { id:'p1', name:'Greenfield Mixed-Use Development', accUrl:'https://acc.autodesk.com',
-      c4rFiles:[
-        {name:'ARK-Main-Building.rvt',     version:'2025',isC4R:true,modTime:'2026-03-10T14:22:00Z',modBy:'Sarah Chen',     path:'Project Files / Architecture'},
-        {name:'STR-Foundation.rvt',        version:'2025',isC4R:true,modTime:'2026-03-18T13:55:00Z',modBy:'Fatima Al-Hassan',path:'Project Files / Structure'},
-        {name:'MEP-Mechanical.rvt',        version:'2025',isC4R:true,modTime:'2026-03-22T15:20:00Z',modBy:'Aisha Bakr',      path:'Project Files / MEP'},
-      ],
-      cloudFiles:[
-        {name:'ARK-Concept-Study.rvt',     version:'2024',isC4R:false,modTime:'2026-01-05T10:00:00Z',modBy:'Sarah Chen',    path:'Project Files / Reference'},
-      ]},
-    { id:'p2', name:'Highway 45 Expansion — Phase 2', accUrl:'https://acc.autodesk.com',
-      c4rFiles:[
-        {name:'CIV-Highway-Main.rvt',      version:'2024',isC4R:true,modTime:'2026-01-12T09:00:00Z',modBy:'Tom Eriksson',   path:'Project Files / Civil'},
-        {name:'STR-Bridges.rvt',           version:'2024',isC4R:true,modTime:'2026-01-15T11:00:00Z',modBy:'Diego Reyes',    path:'Project Files / Structure'},
-        {name:'MEP-Drainage.rvt',          version:'2024',isC4R:true,modTime:'2025-11-20T08:00:00Z',modBy:'Leo Navarro',    path:'Project Files / MEP'},
-      ],
-      cloudFiles:[]},
-    { id:'p3', name:'Metro Station Fit-out — Central', accUrl:'https://acc.autodesk.com',
-      c4rFiles:[
-        {name:'ARK-Station-Main.rvt',      version:'2023',isC4R:true,modTime:'2025-10-05T07:30:00Z',modBy:'Priya Nair',     path:'Project Files / Architecture'},
-        {name:'STR-Concourse.rvt',         version:'2023',isC4R:true,modTime:'2025-08-20T10:00:00Z',modBy:'James Whitmore', path:'Project Files / Structure'},
-        {name:'MEP-Station-Systems.rvt',   version:'2023',isC4R:true,modTime:'2025-07-14T09:00:00Z',modBy:'Mei Zhang',      path:'Project Files / MEP'},
-      ],
-      cloudFiles:[
-        {name:'MEP-Existing-Conditions.rvt',version:'2019',isC4R:false,modTime:'2023-05-01T08:00:00Z',modBy:'Mei Zhang',   path:'Project Files / Reference'},
-      ]},
-    { id:'p4', name:'Riverside Office Campus', accUrl:'https://acc.autodesk.com',
-      c4rFiles:[
-        {name:'ARK-Tower-A.rvt',           version:'2026',isC4R:true,modTime:'2026-04-10T15:20:00Z',modBy:'Sarah Chen',     path:'Project Files / Architecture'},
-        {name:'STR-Towers.rvt',            version:'2026',isC4R:true,modTime:'2026-03-28T13:00:00Z',modBy:'Fatima Al-Hassan',path:'Project Files / Structure'},
-        {name:'MEP-Combined.rvt',          version:'2026',isC4R:true,modTime:'2026-03-30T11:00:00Z',modBy:'Aisha Bakr',     path:'Project Files / MEP'},
-      ],
-      cloudFiles:[]},
-    { id:'p5', name:'Harbour Precinct Masterplan', accUrl:'https://acc.autodesk.com',
-      c4rFiles:[
-        {name:'MSTR-Precinct.rvt',         version:'2021',isC4R:true,modTime:'2025-03-01T09:00:00Z',modBy:'Tom Eriksson',   path:'Project Files'},
-        {name:'ARK-Block-A.rvt',           version:'2021',isC4R:true,modTime:'2025-02-14T08:00:00Z',modBy:'Diego Reyes',    path:'Project Files'},
-      ],
-      cloudFiles:[]},
-    { id:'p6', name:'Airport Terminal Expansion', accUrl:'https://acc.autodesk.com',
-      c4rFiles:[
-        {name:'ARK-Terminal.rvt',          version:'2024',isC4R:true,modTime:'2026-02-20T14:00:00Z',modBy:'James Whitmore', path:'Project Files / Architecture'},
-        {name:'STR-Terminal.rvt',          version:'2024',isC4R:true,modTime:'2026-02-22T11:00:00Z',modBy:'Fatima Al-Hassan',path:'Project Files / Structure'},
-        {name:'MEP-Terminal.rvt',          version:'2024',isC4R:true,modTime:'2026-02-25T10:00:00Z',modBy:'Aisha Bakr',     path:'Project Files / MEP'},
-      ],
-      cloudFiles:[
-        {name:'Terminal-Phase1-Archive.rvt',version:'2020',isC4R:false,modTime:'2023-01-10T08:00:00Z',modBy:'James Whitmore',path:'Archive'},
-      ]},
-    { id:'p7', name:'South Docklands — Mixed-Use', accUrl:'https://acc.autodesk.com',
-      c4rFiles:[
-        {name:'ARK-Docklands-Main.rvt',    version:'2020',isC4R:true,modTime:'2024-06-10T08:00:00Z',modBy:'Leo Navarro',    path:'Project Files / Architecture'},
-        {name:'STR-Docklands.rvt',         version:'2020',isC4R:true,modTime:'2024-05-22T09:00:00Z',modBy:'Mei Zhang',      path:'Project Files / Structure'},
-      ],
-      cloudFiles:[]},
-    { id:'p8', name:'Data Centre — Building 3', accUrl:'https://acc.autodesk.com',
-      c4rFiles:[], cloudFiles:[]},
-  ].map(p => deriveProject(p));
+    {id:'p1',name:'Greenfield Mixed-Use Development',accUrl:'https://acc.autodesk.com',
+     c4rFiles:[
+       {name:'ARK-Main-Building.rvt',version:'2025',isC4R:true,modTime:'2026-03-10T14:22:00Z',modBy:'Sarah Chen',path:'Project Files / Architecture'},
+       {name:'STR-Foundation.rvt',version:'2025',isC4R:true,modTime:'2026-03-18T13:55:00Z',modBy:'Fatima Al-Hassan',path:'Project Files / Structure'},
+       {name:'MEP-Mechanical.rvt',version:'2025',isC4R:true,modTime:'2026-03-22T15:20:00Z',modBy:'Aisha Bakr',path:'Project Files / MEP'},
+     ],
+     cloudFiles:[{name:'ARK-Concept-Study.rvt',version:'2024',isC4R:false,modTime:'2026-01-05T10:00:00Z',modBy:'Sarah Chen',path:'Project Files / Reference'}]},
+    {id:'p2',name:'North Precinct Mixed-Use',accUrl:'https://acc.autodesk.com',
+     c4rFiles:[
+       {name:'ARK-North-Main.rvt',version:'2026',isC4R:true,modTime:'2026-04-01T09:00:00Z',modBy:'James Whitmore',path:'Project Files / Architecture'},
+       {name:'STR-North.rvt',version:'2026',isC4R:true,modTime:'2026-04-02T10:00:00Z',modBy:'Diego Reyes',path:'Project Files / Structure'},
+     ],cloudFiles:[]},
+    {id:'p3',name:'Metro Station Fit-out — Central',accUrl:'https://acc.autodesk.com',
+     c4rFiles:[
+       {name:'ARK-Station-Main.rvt',version:'2023',isC4R:true,modTime:'2025-10-05T07:30:00Z',modBy:'Priya Nair',path:'Project Files / Architecture'},
+       {name:'STR-Concourse.rvt',version:'2023',isC4R:true,modTime:'2025-08-20T10:00:00Z',modBy:'James Whitmore',path:'Project Files / Structure'},
+       {name:'MEP-Station-Systems.rvt',version:'2023',isC4R:true,modTime:'2025-07-14T09:00:00Z',modBy:'Mei Zhang',path:'Project Files / MEP'},
+     ],
+     cloudFiles:[{name:'MEP-Existing-Conditions.rvt',version:'2019',isC4R:false,modTime:'2023-05-01T08:00:00Z',modBy:'Mei Zhang',path:'Project Files / Reference'}]},
+    {id:'p4',name:'Riverside Office Campus',accUrl:'https://acc.autodesk.com',
+     c4rFiles:[
+       {name:'ARK-Tower-A.rvt',version:'2026',isC4R:true,modTime:'2026-04-10T15:20:00Z',modBy:'Sarah Chen',path:'Project Files / Architecture'},
+       {name:'STR-Towers.rvt',version:'2026',isC4R:true,modTime:'2026-03-28T13:00:00Z',modBy:'Fatima Al-Hassan',path:'Project Files / Structure'},
+       {name:'MEP-Combined.rvt',version:'2026',isC4R:true,modTime:'2026-03-30T11:00:00Z',modBy:'Aisha Bakr',path:'Project Files / MEP'},
+     ],cloudFiles:[]},
+    {id:'p5',name:'Harbour Precinct Masterplan',accUrl:'https://acc.autodesk.com',
+     c4rFiles:[
+       {name:'MSTR-Precinct.rvt',version:'2021',isC4R:true,modTime:'2025-03-01T09:00:00Z',modBy:'Tom Eriksson',path:'Project Files'},
+       {name:'ARK-Block-A.rvt',version:'2021',isC4R:true,modTime:'2025-02-14T08:00:00Z',modBy:'Diego Reyes',path:'Project Files'},
+     ],cloudFiles:[]},
+    {id:'p6',name:'Airport Terminal Expansion',accUrl:'https://acc.autodesk.com',
+     c4rFiles:[
+       {name:'ARK-Terminal.rvt',version:'2022',isC4R:true,modTime:'2026-02-20T14:00:00Z',modBy:'James Whitmore',path:'Project Files / Architecture'},
+       {name:'STR-Terminal.rvt',version:'2022',isC4R:true,modTime:'2026-02-22T11:00:00Z',modBy:'Fatima Al-Hassan',path:'Project Files / Structure'},
+       {name:'MEP-Terminal.rvt',version:'2022',isC4R:true,modTime:'2026-02-25T10:00:00Z',modBy:'Aisha Bakr',path:'Project Files / MEP'},
+     ],
+     cloudFiles:[{name:'Terminal-Phase1-Archive.rvt',version:'2020',isC4R:false,modTime:'2023-01-10T08:00:00Z',modBy:'James Whitmore',path:'Archive'}]},
+    {id:'p7',name:'South Docklands — Mixed-Use',accUrl:'https://acc.autodesk.com',
+     c4rFiles:[
+       {name:'ARK-Docklands-Main.rvt',version:'2020',isC4R:true,modTime:'2024-06-10T08:00:00Z',modBy:'Leo Navarro',path:'Project Files / Architecture'},
+       {name:'STR-Docklands.rvt',version:'2020',isC4R:true,modTime:'2024-05-22T09:00:00Z',modBy:'Mei Zhang',path:'Project Files / Structure'},
+     ],cloudFiles:[]},
+    {id:'p8',name:'Highway 45 Expansion — Phase 2',accUrl:'https://acc.autodesk.com',
+     c4rFiles:[
+       {name:'CIV-Highway-Main.rvt',version:'2024',isC4R:true,modTime:'2026-01-12T09:00:00Z',modBy:'Tom Eriksson',path:'Project Files / Civil'},
+       {name:'STR-Bridges.rvt',version:'2024',isC4R:true,modTime:'2026-01-15T11:00:00Z',modBy:'Diego Reyes',path:'Project Files / Structure'},
+     ],cloudFiles:[]},
+    {id:'p9',name:'Data Centre — Building 3',accUrl:'https://acc.autodesk.com',c4rFiles:[],cloudFiles:[]},
+  ].map(p=>deriveProject(p));
+  // no-access pre-clear, then build groups
+  S.projects.filter(p=>p.noAccess).forEach(p=>p.pending=false);
+  S.pdone=S.projects.filter(p=>!p.pending).length;
+  S.ptotal=S.projects.length;
+  S.groups=buildGroups(S.projects);
+  // Mark all demo projects as done (not pending/scanning)
+  S.projects.forEach(p=>{p.pending=false;p.scanning=false;});
+  S.groups.forEach(g=>{g.status='done';g.pdone=g.ptotal;});
   render();
 }
 
+// ─── INTERACTIONS ─────────────────────────────────────────────────────────────
+function sortBy(col){if(S.sortCol===col)S.sortDir*=-1;else{S.sortCol=col;S.sortDir=-1;}render();}
+function toggleGroup(id){const g=S.groups.find(x=>x.id===id);if(g)g.expanded=!g.expanded;render();}
+function toggleFilter(st){if(S.statusFilters.has(st))S.statusFilters.delete(st);else S.statusFilters.add(st);render();}
+function clearFilters(){S.statusFilters.clear();S.filterOpen=false;render();}
+function setThresh(y){S.threshold=y;localStorage.setItem('rvt_thresh',y);render();}
+function toggleX(id){if(S.expanded.has(id))S.expanded.delete(id);else S.expanded.add(id);render();}
+function navTo(p){S.phase=(p==='scan')?(S.hub?'dash':'setup'):p;render();}
+
+// ─── CSV EXPORT ───────────────────────────────────────────────────────────────
+function exportCsv(groupIdx){
+  const lbl={critical:'Critical',warn:'Outdated',ok:'Current',mixed:'Mixed','no-c4r':'No RCW','no-access':'No Access',scanning:'Scanning'};
+  const src=groupIdx!=null?S.projects.slice(S.groups[groupIdx].start,S.groups[groupIdx].end):S.projects;
+  const gLabel=groupIdx!=null?` (${S.groups[groupIdx].label})`:'';
+  let csv='Project,RCW Version,RCW Files,At Risk Files,RC Files,Status,Last Modified\n';
+  for(const p of src){
+    const ar=atRiskCount(p);
+    csv+=[p.name,p.c4rVersion||'—',p.c4rCount,ar,p.cloudCount,lbl[pStatus(p)]||'',fDate(p.lastMod)]
+          .map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')+'\n';
+    for(const f of(p.c4rFiles||[]))
+      csv+=[p.name,'RCW',f.name,f.version||'—',isAtRisk(f.version)?'Critical':'OK',f.path||'—',fDate(f.modTime),f.modBy||'—']
+            .map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')+'\n';
+  }
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download=`revit-checker-${(S.hub?.name||'hub').replace(/[^a-z0-9]/gi,'-')}${groupIdx!=null?'-g'+(groupIdx+1):''}-${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+}
+
+// ─── PDF EXPORT ───────────────────────────────────────────────────────────────
+// Color palette — mirrors the screen UI exactly
+const PDF_C={
+  blue:[20,115,230],blueDk:[13,91,184],blueHdr:[8,60,155],
+  red:[220,38,38],redDk:[180,30,30],redBg:[255,247,247],
+  amber:[217,119,6],amberDk:[180,83,9],amberBg:[255,252,242],
+  green:[13,125,95],greenBg:[244,253,249],
+  purple:[91,79,207],purpleBg:[248,246,255],
+  grey:[107,114,128],greyBg:[249,250,251],greyLine:[218,224,232],
+  text:[17,24,39],white:[255,255,255],bgStrip:[243,245,248],
+};
+
+// Draw a filled rounded-rect badge — used for status and link cells
+function pdfBadge(doc,x,y,w,h,fill,text,textColor,fontSize=7){
+  doc.setFillColor(...fill);
+  doc.roundedRect(x,y,w,h,1.5,1.5,'F');
+  doc.setFontSize(fontSize);doc.setFont('helvetica','bold');doc.setTextColor(...textColor);
+  doc.text(text,x+w/2,y+h/2+fontSize*0.18,{align:'center'});
+}
+
+async function exportPdf(groupIdx){
+  if(!window.jspdf){alert('PDF library still loading. Try again in a moment.');return;}
+  const{jsPDF}=window.jspdf;
+  const now=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+  const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+  const W=297,PH=210,ML=14,MR=14,TW=W-ML-MR; // landscape A4, TW=269mm
+
+  // ── Apply group slice + search/status filter ──────────────────────────────
+  const srcProjs=groupIdx!=null?S.projects.slice(S.groups[groupIdx].start,S.groups[groupIdx].end):S.projects;
+  let filteredProjs=[...srcProjs];
+  if(S.search){const q=S.search.toLowerCase();filteredProjs=filteredProjs.filter(p=>p.name.toLowerCase().includes(q));}
+  if(S.statusFilters.size>0)filteredProjs=filteredProjs.filter(p=>S.statusFilters.has(pStatus(p)));
+  filteredProjs.sort((a,b)=>{
+    let av,bv;
+    if(S.sortCol==='name'){av=a.name.toLowerCase();bv=b.name.toLowerCase();}
+    else if(S.sortCol==='ver'){av=(!a.c4rVersion||a.c4rVersion==='MIXED')?-1:parseInt(a.c4rVersion);bv=(!b.c4rVersion||b.c4rVersion==='MIXED')?-1:parseInt(b.c4rVersion);}
+    else if(S.sortCol==='risk'){av=atRiskCount(a);bv=atRiskCount(b);}
+    else if(S.sortCol==='mod'){av=a.lastMod||'';bv=b.lastMod||'';}
+    else{av=0;bv=0;}
+    return av<bv?-S.sortDir:av>bv?S.sortDir:0;
+  });
+
+  const totalC4R=filteredProjs.reduce((s,p)=>s+p.c4rCount,0);
+  const totalCloud=filteredProjs.reduce((s,p)=>s+p.cloudCount,0);
+  const atRiskTotal=filteredProjs.reduce((s,p)=>s+atRiskCount(p),0);
+  const critProj=filteredProjs.filter(p=>pStatus(p)==='critical').length;
+  const warnProj=filteredProjs.filter(p=>pStatus(p)==='warn').length;
+  const isFiltered=filteredProjs.length<S.projects.length;
+  const statusNames={critical:`Critical (≤${S.threshold})`,warn:`Outdated (${S.threshold+1}–${S.threshold+2})`,ok:`Current (≥${S.threshold+3})`,mixed:'Mixed','no-c4r':'No RCW','no-access':'No Access'};
+  const filterDesc=S.statusFilters.size>0
+    ?[...S.statusFilters].map(s=>statusNames[s]||s).join(', ')
+    :(S.search?`Search: "${S.search}"`:null);
+
+  // ── Header — two-tone ─────────────────────────────────────────────────────
+  // Section 1: deep blue — app title + report type
+  doc.setFillColor(...PDF_C.blueHdr);doc.rect(0,0,W,14,'F');
+  doc.setTextColor(...PDF_C.white);doc.setFontSize(13);doc.setFont('helvetica','bold');
+  doc.text('Revit Version Checker',ML,10);
+  doc.setFontSize(9);doc.setFont('helvetica','normal');
+  doc.text('Hub Scan Report',W-MR,10,{align:'right'});
+
+  // Section 2: blue — hub + date + threshold
+  doc.setFillColor(...PDF_C.blue);doc.rect(0,14,W,10,'F');
+  doc.setTextColor(...PDF_C.white);doc.setFontSize(7.5);doc.setFont('helvetica','normal');
+  const groupNote=groupIdx!=null?`   |   ${S.groups[groupIdx].label}`:'';
+  const hdrLine=(`Hub: ${S.hub.name}   |   ${now}   |   Critical ≤${S.threshold}   |   Outdated ${S.threshold+1}–${S.threshold+2}   |   Current ≥${S.threshold+3}${groupNote}${isFiltered&&filterDesc?`   |   Filter: ${filterDesc}`:''}`);
+  doc.text(hdrLine,ML,20,{maxWidth:TW});
+  const headerH=24;
+
+  // ── Metrics strip — 6 tiles with separators ───────────────────────────────
+  const stripTop=headerH,stripH=28;
+  doc.setFillColor(...PDF_C.bgStrip);doc.rect(0,stripTop,W,stripH,'F');
+  doc.setDrawColor(...PDF_C.greyLine);doc.line(0,stripTop+stripH,W,stripTop+stripH);
+
+  const currentProjCount=filteredProjs.filter(p=>pStatus(p)==='ok').length;
+  const metrics=[
+    {label:isFiltered?'Filtered Projects':'Total Projects',value:String(filteredProjs.length),color:PDF_C.text},
+    {label:'RCW Models',value:String(totalC4R),color:PDF_C.text},
+    {label:`Critical (≤${S.threshold})`,value:String(atRiskTotal),color:atRiskTotal>0?PDF_C.redDk:PDF_C.grey},
+    {label:`Outdated (${S.threshold+1}–${S.threshold+2})`,value:String(warnProj),color:warnProj>0?PDF_C.amberDk:PDF_C.text},
+    {label:`Current (≥${S.threshold+3})`,value:String(currentProjCount),color:currentProjCount>0?PDF_C.green:PDF_C.grey},
+    {label:'RC Models',value:String(totalCloud),color:PDF_C.grey},
+  ];
+  const tileW=TW/metrics.length;
+  metrics.forEach((m,i)=>{
+    const tx=ML+i*tileW;
+    // Separator line (not before first)
+    if(i>0){doc.setDrawColor(...PDF_C.greyLine);doc.line(tx,stripTop+5,tx,stripTop+stripH-5);}
+    doc.setFontSize(6.5);doc.setFont('helvetica','normal');doc.setTextColor(...PDF_C.grey);
+    doc.text(m.label.toUpperCase(),tx+(i>0?4:0),stripTop+8);
+    doc.setFontSize(19);doc.setFont('helvetica','bold');doc.setTextColor(...m.color);
+    doc.text(m.value,tx+(i>0?4:0),stripTop+23);
+  });
+
+  let startY=stripTop+stripH+5;
+
+  // ── Risk banner ───────────────────────────────────────────────────────────
+  if(atRiskTotal>0){
+    const bannerText=`ACTION REQUIRED: ${atRiskTotal} workshared model${atRiskTotal!==1?'s':''} across ${critProj} project${critProj!==1?'s':''} are on Revit ${S.threshold} or older. Upgrade via Revit Cloud Model Upgrade in ACC before the FY27 Q3/Q4 deprecation deadline.`;
+    doc.setFontSize(8);doc.setFont('helvetica','bold');
+    const lines=doc.splitTextToSize(bannerText,TW-12);
+    const bannerH=lines.length*5+10;
+    doc.setFillColor(...PDF_C.redBg);doc.setDrawColor(...PDF_C.red);
+    doc.roundedRect(ML,startY,TW,bannerH,2,2,'FD');
+    // Red left accent
+    doc.setFillColor(...PDF_C.red);doc.rect(ML,startY,3,bannerH,'F');
+    doc.setTextColor(...PDF_C.redDk);
+    doc.text(lines,ML+7,startY+7);
+    startY+=bannerH+4;
+  }
+
+  // ── Accuracy statement ────────────────────────────────────────────────────
+  {
+    const scannedProjects=srcProjs.filter(p=>!p.noAccess&&!p.pending&&pStatus(p)!=='scanning');
+    const totalRvt=scannedProjects.reduce((s,p)=>(p.c4rFiles?.length||0)+(p.cloudFiles?.length||0)+(p.failedFiles?.length||0)+s,0);
+    const classifiedRvt=scannedProjects.reduce((s,p)=>(p.c4rFiles?.length||0)+(p.cloudFiles?.length||0)+s,0);
+    const failedRvt=scannedProjects.reduce((s,p)=>(p.failedFiles?.length||0)+s,0);
+    const skippedFolderTotal=scannedProjects.reduce((s,p)=>(p.skippedFolders||0)+s,0);
+    const noAccessCount=srcProjs.filter(p=>p.noAccess).length;
+    const fileAccuracyPct=totalRvt>0?Math.round((classifiedRvt/totalRvt)*100):100;
+    const caveatParts=[];
+    if(failedRvt>0)caveatParts.push(`${failedRvt} .rvt file${failedRvt!==1?'s':''} could not be checked (version API call failed after retries) and may include RCW models.`);
+    if(skippedFolderTotal>0)caveatParts.push(`${skippedFolderTotal} folder${skippedFolderTotal!==1?'s were':' was'} inaccessible (403) — contents unknown, not reflected in counts.`);
+    if(noAccessCount>0)caveatParts.push(`${noAccessCount} project${noAccessCount!==1?'s':''} had no file access and may contain RCW files.`);
+    caveatParts.push('Community tool — not an official Autodesk audit. v'+VERSION);
+    const accLine=totalRvt>0?`Scan accuracy: ${fileAccuracyPct}%  |  ${classifiedRvt} of ${totalRvt} .rvt files successfully classified.`:'No .rvt files found in scanned projects.';
+    const accH=7+(caveatParts.length*4)+4;
+    doc.setFillColor(...PDF_C.bgStrip);doc.setDrawColor(...PDF_C.greyLine);
+    doc.roundedRect(ML,startY,TW,accH,2,2,'FD');
+    doc.setFontSize(7.5);doc.setFont('helvetica','bold');doc.setTextColor(...PDF_C.blueHdr);
+    doc.text(accLine,ML+4,startY+5);
+    doc.setFont('helvetica','normal');doc.setTextColor(...PDF_C.grey);doc.setFontSize(6.5);
+    caveatParts.forEach((t,i)=>doc.text('* '+t,ML+4,startY+10+i*4,{maxWidth:TW-8}));
+    startY+=accH+4;
+  }
+
+  // ── Projects table ────────────────────────────────────────────────────────
+  // Col widths: 100+20+18+15+14+28+38+36 = 269 ✓
+  // 0:Project 1:Ver 2:RCW 3:Risk 4:RC 5:Status 6:Modified 7:Link
+  const statusBadgeColor={
+    critical:{fill:PDF_C.red,   text:PDF_C.white,label:'Critical'},
+    warn:    {fill:PDF_C.amber,  text:PDF_C.white,label:'Outdated'},
+    ok:      {fill:PDF_C.green,  text:PDF_C.white,label:'Current'},
+    mixed:   {fill:PDF_C.purple, text:PDF_C.white,label:'Mixed'},
+    'no-c4r':{fill:PDF_C.grey,   text:PDF_C.white,label:'No RCW'},
+    'no-access':{fill:PDF_C.grey,text:PDF_C.white,label:'No Access'},
+    pending: {fill:PDF_C.grey,   text:PDF_C.white,label:'Queued'},
+  };
+  const rowBgColor={
+    critical:PDF_C.redBg,
+    warn:    PDF_C.amberBg,
+    ok:      PDF_C.greenBg,
+    mixed:   PDF_C.purpleBg,
+  };
+  const lbl={critical:'Critical',warn:'Outdated',ok:'Current',mixed:'Mixed','no-c4r':'No RCW','no-access':'No Access'};
+
+  doc.autoTable({
+    startY,
+    head:[['Project','Version','RCW','Risk','RC','Status','Last Modified','']],
+    body:filteredProjs.map(p=>[
+      p.name,
+      p.c4rVersion||'—',
+      String(p.c4rCount||0),
+      String(atRiskCount(p)||0),
+      String(p.cloudCount||0),
+      '', // status drawn in didDrawCell
+      fDate(p.lastMod),
+      '', // link drawn in didDrawCell
+    ]),
+    styles:{fontSize:8.5,cellPadding:{top:3.5,bottom:3.5,left:3,right:3},overflow:'linebreak',textColor:PDF_C.text},
+    headStyles:{fillColor:PDF_C.blueHdr,textColor:PDF_C.white,fontStyle:'bold',fontSize:7.5,cellPadding:{top:4,bottom:4,left:3,right:3}},
+    alternateRowStyles:{fillColor:[252,252,253]}, // near-white; overridden per status below
+    didParseCell:(data)=>{
+      if(data.section!=='body')return;
+      const p=filteredProjs[data.row.index];if(!p)return;
+      const st=pStatus(p);
+      const bg=rowBgColor[st];
+      const col=data.column.index;
+
+      // Row background tint (all columns except status badge col and link col)
+      if(bg&&col!==5&&col!==7)data.cell.styles.fillColor=bg;
+      if(col===5||col===7){data.cell.styles.fillColor=bg||[252,252,253];}
+
+      // Project name column: bold for critical
+      if(col===0&&st==='critical'){data.cell.styles.fontStyle='bold';data.cell.styles.textColor=PDF_C.redDk;}
+
+      // Version column: colored text matching status
+      if(col===1){
+        if(st==='critical')     {data.cell.styles.textColor=PDF_C.redDk;data.cell.styles.fontStyle='bold';}
+        else if(st==='warn')     data.cell.styles.textColor=PDF_C.amberDk;
+        else if(st==='ok')       data.cell.styles.textColor=PDF_C.green;
+        else if(st==='mixed')    data.cell.styles.textColor=PDF_C.purple;
+        data.cell.styles.halign='center';
+      }
+      // RCW/Risk/RC counts
+      if(col===3&&atRiskCount(p)>0){data.cell.styles.textColor=PDF_C.redDk;data.cell.styles.fontStyle='bold';}
+      if(col===2||col===3||col===4)data.cell.styles.halign='center';
+    },
+    didDrawCell:(data)=>{
+      if(data.section!=='body'){return;}
+      const p=filteredProjs[data.row.index];if(!p)return;
+      const st=pStatus(p);
+      const cx=data.cell.x,cy=data.cell.y,cw=data.cell.width,ch=data.cell.height;
+
+      // Left accent bar for critical rows (column 0 only)
+      if(data.column.index===0&&st==='critical'){
+        doc.setFillColor(...PDF_C.red);
+        doc.rect(cx,cy,2.5,ch,'F');
+      }
+
+      // Status badge (column 5)
+      if(data.column.index===5){
+        const bc=statusBadgeColor[st];
+        if(bc){
+          const bw=cw-8,bh=ch-4,bx=cx+4,by=cy+2;
+          doc.setFillColor(...bc.fill);
+          doc.roundedRect(bx,by,bw,bh,1.5,1.5,'F');
+          doc.setFontSize(7);doc.setFont('helvetica','bold');doc.setTextColor(...bc.text);
+          doc.text(bc.label,bx+bw/2,by+bh/2+1.2,{align:'center'});
+        }
+      }
+
+      // Link button (column 7)
+      if(data.column.index===7&&p.accUrl){
+        const bw=22,bh=6,bx=cx+(cw-bw)/2,by=cy+(ch-bh)/2;
+        doc.setFillColor(...PDF_C.blue);
+        doc.roundedRect(bx,by,bw,bh,1.5,1.5,'F');
+        doc.setFontSize(6.5);doc.setFont('helvetica','bold');doc.setTextColor(...PDF_C.white);
+        doc.text('Open ACC',bx+bw/2,by+bh/2+1.1,{align:'center'});
+        doc.link(cx,cy,cw,ch,{url:p.accUrl});
+      }
+    },
+    columnStyles:{
+      0:{cellWidth:100},
+      1:{cellWidth:20,halign:'center'},
+      2:{cellWidth:18,halign:'center'},
+      3:{cellWidth:15,halign:'center'},
+      4:{cellWidth:14,halign:'center'},
+      5:{cellWidth:28,halign:'center'},
+      6:{cellWidth:38},
+      7:{cellWidth:36,halign:'center'},
+    },
+    margin:{left:ML,right:MR},
+  });
+
+  // ── Critical projects — file detail pages ─────────────────────────────────
+  const riskProjs=filteredProjs.filter(p=>pStatus(p)==='critical'&&(p.c4rFiles||[]).length>0);
+  if(riskProjs.length>0){
+    doc.addPage();
+    // Detail page header — matches main header style
+    doc.setFillColor(...PDF_C.blueHdr);doc.rect(0,0,W,14,'F');
+    doc.setTextColor(...PDF_C.white);doc.setFontSize(13);doc.setFont('helvetica','bold');
+    doc.text('Critical Projects',ML,10);
+    doc.setFontSize(9);doc.setFont('helvetica','normal');
+    doc.text('File Detail',W-MR,10,{align:'right'});
+    doc.setFillColor(...PDF_C.blue);doc.rect(0,14,W,7,'F');
+    doc.setFontSize(7);doc.setTextColor(...PDF_C.white);
+    doc.text(`${riskProjs.length} project${riskProjs.length!==1?'s':''} with RCW files on Revit ≤${S.threshold} — upgrade required before FY27 Q3/Q4`,ML,19);
+    let y=26;
+
+    for(const proj of riskProjs){
+      const ar=atRiskCount(proj);
+      const hdrText=`${proj.name}    RCW: ${proj.c4rVersion||'—'}    At risk: ${ar} file${ar!==1?'s':''}`;
+      doc.setFontSize(8.5);doc.setFont('helvetica','bold');
+      const hdrLines=doc.splitTextToSize(hdrText,TW-12);
+      const hdrH=hdrLines.length*5+8;
+      if(y+hdrH+25>PH-10){doc.addPage();y=14;}
+      // Project header banner
+      doc.setFillColor(...PDF_C.redBg);doc.setDrawColor(...PDF_C.red);
+      doc.roundedRect(ML,y,TW,hdrH,2,2,'FD');
+      doc.setFillColor(...PDF_C.red);doc.rect(ML,y,3,hdrH,'F');
+      doc.setTextColor(...PDF_C.redDk);
+      doc.text(hdrLines,ML+7,y+6);
+      y+=hdrH+2;
+
+      // File table — Col: File 88, Ver 18, Status 24, Path 84, Modified 30, By 25 = 269 ✓
+      doc.autoTable({
+        startY:y,
+        head:[['File','Version','Status','Path','Last Modified','Modified By']],
+        body:(proj.c4rFiles||[]).map(f=>[
+          f.name,
+          f.version||'—',
+          '',  // status drawn as badge
+          f.path||'—',
+          fDate(f.modTime),
+          f.modBy||'—'
+        ]),
+        styles:{fontSize:7.5,cellPadding:{top:2.5,bottom:2.5,left:3,right:3},overflow:'linebreak',textColor:PDF_C.text},
+        headStyles:{fillColor:PDF_C.blueHdr,textColor:PDF_C.white,fontStyle:'bold',fontSize:7},
+        alternateRowStyles:{fillColor:[252,252,253]},
+        didParseCell:(data)=>{
+          if(data.section!=='body')return;
+          const f=(proj.c4rFiles||[])[data.row.index];if(!f)return;
+          const fRisk=isAtRisk(f.version);
+          const fWarn=!fRisk&&parseInt(f.version||0)<=S.threshold+2;
+          if(fRisk){
+            if(data.column.index!==2)data.cell.styles.fillColor=PDF_C.redBg;
+            if(data.column.index===0){data.cell.styles.textColor=PDF_C.redDk;data.cell.styles.fontStyle='bold';}
+            if(data.column.index===1){data.cell.styles.textColor=PDF_C.redDk;data.cell.styles.fontStyle='bold';data.cell.styles.halign='center';}
+          }else if(fWarn){
+            if(data.column.index!==2)data.cell.styles.fillColor=PDF_C.amberBg;
+            if(data.column.index===1){data.cell.styles.textColor=PDF_C.amberDk;data.cell.styles.halign='center';}
+          }else{
+            if(data.column.index===1){data.cell.styles.textColor=PDF_C.green;data.cell.styles.halign='center';}
+          }
+        },
+        didDrawCell:(data)=>{
+          if(data.section!=='body'&&data.column.index!==2)return;
+          if(data.section==='body'&&data.column.index===2){
+            const f=(proj.c4rFiles||[])[data.row.index];if(!f)return;
+            const fRisk=isAtRisk(f.version);
+            const fWarn=!fRisk&&parseInt(f.version||0)<=S.threshold+2;
+            const fill=fRisk?PDF_C.red:fWarn?PDF_C.amber:PDF_C.green;
+            const label=fRisk?'Critical':fWarn?'Outdated':'Current';
+            const cx=data.cell.x,cy=data.cell.y,cw=data.cell.width,ch=data.cell.height;
+            const bw=cw-6,bh=ch-4,bx=cx+3,by=cy+2;
+            doc.setFillColor(...fill);doc.roundedRect(bx,by,bw,bh,1.5,1.5,'F');
+            doc.setFontSize(6.5);doc.setFont('helvetica','bold');doc.setTextColor(...PDF_C.white);
+            doc.text(label,bx+bw/2,by+bh/2+1.1,{align:'center'});
+          }
+        },
+        columnStyles:{
+          0:{cellWidth:88,overflow:'linebreak'},
+          1:{cellWidth:18,halign:'center'},
+          2:{cellWidth:24,halign:'center'},
+          3:{cellWidth:84,overflow:'linebreak'},
+          4:{cellWidth:30},
+          5:{cellWidth:25},
+        },
+        margin:{left:ML,right:MR},
+      });
+      y=doc.lastAutoTable.finalY+8;
+    }
+  }
+
+  // ── Page footers ──────────────────────────────────────────────────────────
+  const pc=doc.internal.getNumberOfPages();
+  for(let i=1;i<=pc;i++){
+    doc.setPage(i);
+    // Footer rule
+    doc.setDrawColor(...PDF_C.greyLine);doc.line(ML,PH-8,W-MR,PH-8);
+    doc.setFontSize(6.5);doc.setFont('helvetica','normal');doc.setTextColor(...PDF_C.grey);
+    doc.text(`Revit Version Checker v${VERSION}  |  Not an official Autodesk product  |  Page ${i} of ${pc}`,ML,PH-4);
+    doc.text(now,W-MR,PH-4,{align:'right'});
+  }
+  doc.save(`revit-checker-${(S.hub.name||'hub').replace(/[^a-z0-9]/gi,'-')}${groupIdx!=null?'-g'+(groupIdx+1):''}-${new Date().toISOString().split('T')[0]}.pdf`);
+}
+
 // ─── RENDER SETUP ─────────────────────────────────────────────────────────────
-function rSetup() {
-  // RCW / RC pill helpers with hover tooltip
-  const rcw = (sz='') => `<span class="type-pill tp-c4r" data-tip="Revit Cloud Workshared" style="${sz?'font-size:'+sz+';':''}"  >RCW</span>`;
-  const rc  = (sz='') => `<span class="type-pill tp-cloud" data-tip="Revit Cloud Model" style="${sz?'font-size:'+sz+';':''}"  >RC</span>`;
-
-  return `<div class="setup-grid" style="display:grid;grid-template-columns:1fr 380px;gap:20px;align-items:start;max-width:1100px">
-
-    <!-- LEFT: explanation panel -->
-    <div>
-      <h2 style="font-size:17px;font-weight:600;margin-bottom:5px">Revit Version Checker</h2>
-      <p style="font-size:13px;color:var(--muted);margin-bottom:14px">
-        Scans every project in your ACC / Forma hub and separates
-        ${rcw()} models from ${rc()} models.
-        Only <strong style="color:var(--text);font-weight:500">RCW</strong> models are counted toward deprecation risk — they're the ones with a locked version.
-      </p>
-
-      <div class="card" style="margin-bottom:12px;padding:16px">
-        <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.06em">File type comparison</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-          <div style="background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:12px">
-            <div style="margin-bottom:7px">${rcw()} <span style="font-size:11px;color:var(--hint);margin-left:4px">Revit Cloud Workshared</span></div>
-            <p style="font-size:12px;color:var(--muted);line-height:1.65;margin-bottom:8px">Cloud Worksharing is enabled. The whole team — architects, engineers, every discipline — is locked to one Revit version. Nobody can open it in a different version.</p>
-            <div style="font-size:11px;border-top:0.5px solid var(--border);padding-top:8px">
-              <span style="font-weight:600;color:var(--purple)">Affected by deprecation deadline.</span>
-              <span style="color:var(--hint)"> Models on Revit 2021 or older lose cloud worksharing access in FY27 Q3/Q4.</span>
-            </div>
-          </div>
-          <div style="background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:12px">
-            <div style="margin-bottom:7px">${rc()} <span style="font-size:11px;color:var(--hint);margin-left:4px">Revit Cloud Model</span></div>
-            <p style="font-size:12px;color:var(--muted);line-height:1.65;margin-bottom:8px">A Revit file uploaded to ACC without worksharing. Sits in cloud storage like any other document. Anyone can open it in any Revit version — no lock.</p>
-            <div style="font-size:11px;border-top:0.5px solid var(--border);padding-top:8px">
-              <span style="font-weight:600;color:var(--green)">Not affected by deprecation.</span>
-              <span style="color:var(--hint)"> Excluded from all risk calculations.</span>
-            </div>
-          </div>
-        </div>
-
-        <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.06em">Example scenarios</div>
-        <div style="display:flex;flex-direction:column;gap:6px">
-          <div style="background:var(--surface2);border-radius:var(--r);padding:9px 11px;font-size:12px;color:var(--muted);line-height:1.6;border-left:2px solid rgba(127,119,221,0.5)">
-            <span style="color:var(--text);font-weight:500">Hospital expansion, Revit 2023.</span>
-            Architect enabled worksharing at project start. Structural and MEP engineers are all locked to 2023. This is an ${rcw('10px')} model — version is tracked and flagged near the threshold.
-          </div>
-          <div style="background:var(--surface2);border-radius:var(--r);padding:9px 11px;font-size:12px;color:var(--muted);line-height:1.6;border-left:2px solid rgba(255,255,255,0.08)">
-            <span style="color:var(--text);font-weight:500">Surveyor uploads existing conditions from Revit 2019.</span>
-            Dragged into a project folder — no worksharing. Team uses it as reference only. This is an ${rc('10px')} model — informational only, not counted toward any risk.
-          </div>
-          <div style="background:var(--surface2);border-radius:var(--r);padding:9px 11px;font-size:12px;color:var(--muted);line-height:1.6;border-left:2px solid rgba(226,75,74,0.4)">
-            <span style="color:var(--text);font-weight:500">2021 infrastructure project, still active.</span>
-            Worksharing enabled in Revit 2021, team never upgraded. This is an ${rcw('10px')} model flagged <span class="chip chip-crit" style="display:inline-flex;font-size:10px">Critical</span>. Must be upgraded via ACC's Cloud Model Upgrade tool before the FY27 deadline.
-          </div>
+function rSetup(){
+  return`<div class="setup-grid" style="display:grid;grid-template-columns:1fr 390px;gap:22px;align-items:start;max-width:1100px">
+  <div>
+    <h2 style="font-size:18px;font-weight:700;margin-bottom:5px">Revit Version Checker</h2>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Scans <strong style="color:var(--text)">every active project in your ACC hub</strong> using the ACC Admin API. Separates <span class="type-pill tp-c4r">RCW</span> (Revit Cloud Workshared — version-locked) from <span class="type-pill tp-cloud">RC</span> (plain cloud upload) models. Only <strong style="color:var(--text)">RCW</strong> models are subject to the FY27 deprecation.</p>
+    <div class="alert a-info" style="margin-bottom:14px">
+      <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M8 7v5M8 5.2v.8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      <div>
+        <strong>Two ways to connect — choose based on your access needs.</strong>
+        <div style="margin-top:5px;line-height:1.7">
+          <strong>Sign in with Autodesk</strong> (3-legged) — requires Account Admin role. File access is limited to projects you are a member of; others are shown as No Access.<br/>
+          <strong>Client Secret</strong> (2-legged) — app-level access, bypasses project membership. Recommended for hubs with older BIM 360 projects where membership gaps are common.
         </div>
       </div>
-
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:0.06em">Version status tiers (with threshold = 2021)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">
+        <div style="background:var(--green-dim);border:1px solid rgba(13,125,95,0.2);border-radius:var(--r);padding:12px">
+          <div style="font-size:11px;font-weight:700;color:var(--green);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.06em">Current</div>
+          <div style="font-size:21px;font-weight:700;color:var(--green);margin-bottom:4px">≥ 2024</div>
+          <div style="font-size:11px;color:var(--muted)">Threshold + 3 or newer. No action needed.</div>
+        </div>
+        <div style="background:var(--amber-dim);border:1px solid rgba(180,83,9,0.2);border-radius:var(--r);padding:12px">
+          <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.06em">Outdated</div>
+          <div style="font-size:21px;font-weight:700;color:var(--amber);margin-bottom:4px">2022–2023</div>
+          <div style="font-size:11px;color:var(--muted)">Threshold + 1 or + 2. Plan an upgrade.</div>
+        </div>
+        <div style="background:var(--red-dim);border:1px solid rgba(220,38,38,0.2);border-radius:var(--r);padding:12px">
+          <div style="font-size:11px;font-weight:700;color:var(--red);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.06em">Critical</div>
+          <div style="font-size:21px;font-weight:700;color:var(--red);margin-bottom:4px">≤ 2021</div>
+          <div style="font-size:11px;color:var(--muted)">At or below threshold. Upgrade before FY27 deadline.</div>
+        </div>
+      </div>
       <div class="alert a-warn" style="margin-bottom:0">
         <svg viewBox="0 0 16 16" fill="none"><path d="M8 2.5L14 13.5H2L8 2.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 6.5v3.5M8 11.5v.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
         <div>
-          <div style="font-weight:600;margin-bottom:3px">Autodesk deprecation notice</div>
-          <div style="line-height:1.65;font-size:12px">Starting FY27 Q3/Q4, Autodesk will end cloud worksharing access for Revit versions older than current minus five.</div>
-          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:7px">
-            <a href="https://forums.autodesk.com/t5/revit-cloud-worksharing-forum/important-update-deprecation-of-revit-cloud-models-access-for/td-p/14093972" target="_blank"
-               style="display:inline-flex;align-items:center;gap:4px;color:inherit;font-size:11px;font-weight:500;text-decoration:none;opacity:0.85;border-bottom:1px solid currentColor;padding-bottom:1px">
-              <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm-.5 3.5h1v5h-1V4.5zm0 6.5h1v1h-1v-1z"/></svg>
-              Official announcement
-            </a>
-            <a href="https://help.autodesk.com/view/DOCS/ENU/?guid=Upgrade_Revit_Cloud_Models_Docs" target="_blank"
-               style="display:inline-flex;align-items:center;gap:4px;color:inherit;font-size:11px;font-weight:500;text-decoration:none;opacity:0.85;border-bottom:1px solid currentColor;padding-bottom:1px">
-              <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M10 2h4v4M14 2L8 8M3 4h3v1H4v7h7v-3h1v4H3V4z"/></svg>
-              How to upgrade cloud models
-            </a>
+          <div style="font-weight:700;margin-bottom:2px">Autodesk deprecation notice</div>
+          <div style="line-height:1.65;font-size:12px">Starting FY27 Q3/Q4, Autodesk will end cloud worksharing access for Revit versions older than current minus five. Only RCW (Cloud Workshared) models are affected.</div>
+          <div style="display:flex;gap:12px;margin-top:7px">
+            <a href="https://forums.autodesk.com/t5/revit-cloud-worksharing-forum/important-update-deprecation-of-revit-cloud-models-access-for/td-p/14093972" target="_blank" style="font-size:11px;font-weight:600;color:inherit;text-decoration:none;border-bottom:1px solid currentColor">Official announcement →</a>
+            <a href="https://help.autodesk.com/view/DOCS/ENU/?guid=Upgrade_Revit_Cloud_Models_Docs" target="_blank" style="font-size:11px;font-weight:600;color:inherit;text-decoration:none;border-bottom:1px solid currentColor">How to upgrade →</a>
           </div>
         </div>
       </div>
     </div>
-
-    <!-- RIGHT: setup guide + connect form -->
-    <div>
-      <div class="card" style="margin-bottom:12px;padding:18px">
-        <div style="font-size:13px;font-weight:600;margin-bottom:14px">Connect to your ACC hub</div>
-
-        <!-- Step-by-step setup guide -->
-        <div style="display:flex;flex-direction:column;gap:0;margin-bottom:16px">
-
-          <div style="display:flex;gap:10px;align-items:flex-start;padding-bottom:14px;border-bottom:0.5px solid var(--border)">
-            <div style="width:20px;height:20px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#fff;flex-shrink:0;margin-top:1px">1</div>
-            <div>
-              <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:3px">Create a Single-Page APS app</div>
-              <div style="font-size:11px;color:var(--muted);line-height:1.65">Go to <a href="https://aps.autodesk.com" target="_blank" style="color:var(--blue-light);text-decoration:none">aps.autodesk.com</a> → My Apps → Create App. Select <strong style="color:var(--text)">Desktop, Mobile, Single-Page App</strong> as the app type — not Traditional Web App. This is required for the sign-in flow to work. Then set the Callback URL to exactly:</div>
-              <div style="margin-top:6px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:6px 10px;font-size:11px;font-family:monospace;color:var(--blue-light);word-break:break-all;user-select:all">${window.location.origin + window.location.pathname.replace(/\/$/,'')}</div>
+  </div>
+  <div>
+    <div class="card" style="margin-bottom:12px">
+      <div style="font-size:14px;font-weight:700;margin-bottom:16px">Connect to your ACC hub</div>
+      <div style="display:flex;flex-direction:column;gap:0;margin-bottom:18px">
+        <div style="display:flex;gap:11px;align-items:flex-start;padding-bottom:14px;border-bottom:1px solid var(--border)">
+          <div style="width:22px;height:22px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;margin-top:1px">1</div>
+          <div>
+            <div style="font-size:12px;font-weight:700;margin-bottom:3px">Create an APS app</div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.65;margin-bottom:7px">Go to <a href="https://aps.autodesk.com" target="_blank" style="color:var(--blue);font-weight:600;text-decoration:none">aps.autodesk.com</a> → My Apps → Create App. Choose the type based on how you'll connect:</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:7px">
+              <div style="background:var(--blue-dim);border:1px solid rgba(20,115,230,0.18);border-radius:5px;padding:8px 9px">
+                <div style="font-size:10px;font-weight:700;color:var(--blue);margin-bottom:3px;text-transform:uppercase;letter-spacing:0.05em">Sign in with Autodesk</div>
+                <div style="font-size:10px;color:var(--muted);line-height:1.6">Select <strong>Desktop, Mobile, Single-Page App</strong>. No Client Secret is generated — that's expected. Set Callback URL to the address below.</div>
+              </div>
+              <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:5px;padding:8px 9px">
+                <div style="font-size:10px;font-weight:700;color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:0.05em">Use Client Secret (2-legged)</div>
+                <div style="font-size:10px;color:var(--muted);line-height:1.6">Select <strong>Traditional Web App</strong> or <strong>Service App (M2M)</strong>. Both generate a Client Secret. Callback URL is not required for this flow.</div>
+              </div>
             </div>
+            <div style="font-size:10px;color:var(--hint);margin-bottom:5px">Callback URL (3-legged only):</div>
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;font-size:11px;font-family:monospace;color:var(--blue);word-break:break-all;user-select:all">${window.location.origin+window.location.pathname.replace(/\/$/,'')}</div>
           </div>
-
-          <div style="display:flex;gap:10px;align-items:flex-start;padding:14px 0;border-bottom:0.5px solid var(--border)">
-            <div style="width:20px;height:20px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#fff;flex-shrink:0;margin-top:1px">2</div>
-            <div>
-              <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:3px">Add app to your ACC hub</div>
-              <div style="font-size:11px;color:var(--muted);line-height:1.65">In ACC, go to <strong style="color:var(--text)">Account Admin → Custom Integrations → Add custom integration</strong>. Paste your Client ID and grant hub access. This only needs to be done once per hub.</div>
-            </div>
-          </div>
-
-          <div style="display:flex;gap:10px;align-items:flex-start;padding-top:14px">
-            <div style="width:20px;height:20px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#fff;flex-shrink:0;margin-top:1px">3</div>
-            <div style="width:100%">
-              <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:3px">Paste your Client ID and sign in</div>
-              <div style="font-size:11px;color:var(--muted);line-height:1.65;margin-bottom:8px">Copy the Client ID from your APS app settings and paste it below. It's saved in your browser so you only do this once.</div>
-              <input id="cid"
-                type="text"
-                placeholder="e.g. aBcDeFgHiJkLmNoPqRsTuVwXyZ012345"
-                value="${esc(S.clientId)}"
-                style="width:100%;height:34px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);color:var(--text);padding:0 11px;font-size:12px;font-family:monospace;outline:none;transition:border-color 0.12s;margin-bottom:8px"
-                oninput="S.clientId=this.value.trim();localStorage.setItem('rvt_client_id',S.clientId)"
-              />
-            </div>
-          </div>
-
         </div>
+        <div style="display:flex;gap:11px;align-items:flex-start;padding:14px 0;border-bottom:1px solid var(--border)">
+          <div style="width:22px;height:22px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;margin-top:1px">2</div>
+          <div>
+            <div style="font-size:12px;font-weight:700;margin-bottom:3px">Add app to ACC — Account Admin required</div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.65;margin-bottom:8px">In ACC → <strong>Account Admin → Custom Integrations → Add custom integration</strong>. Paste your Client ID.</div>
+            <div style="background:rgba(20,115,230,0.06);border:1px solid rgba(20,115,230,0.2);border-radius:var(--r);padding:8px 10px;font-size:11px;color:var(--blue-light);line-height:1.65">
+              <strong>⚠ Account Admin role required.</strong> You must be an Account Admin to use the ACC Admin API. Without this role the scan will only return projects you are already a member of.
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:11px;align-items:flex-start;padding-top:14px">
+          <div style="width:22px;height:22px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;margin-top:1px">3</div>
+          <div style="width:100%">
+            <div style="font-size:12px;font-weight:700;margin-bottom:3px">Paste your Client ID and sign in</div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.65;margin-bottom:9px">Sign-in requests <code style="background:var(--surface2);padding:1px 4px;border-radius:3px;font-size:10px">data:read</code> + <code style="background:var(--surface2);padding:1px 4px;border-radius:3px;font-size:10px">account:read</code> scopes. Client ID saved in your browser after first use.</div>
+            <input id="cid" type="text" placeholder="e.g. aBcDeFgHiJkLmNoPqRsTuVwXyZ012345"
+              value="${esc(S.clientId)}"
+              style="width:100%;height:36px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);padding:0 12px;font-size:12px;font-family:monospace;outline:none;transition:border-color 0.12s;margin-bottom:9px"
+              oninput="S.clientId=this.value.trim();localStorage.setItem('rvt_client_id',S.clientId)"/>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-blue" id="bc" style="width:100%;justify-content:center;height:42px;font-size:13px;margin-bottom:8px">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="white"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="white" stroke-width="1.2" fill="none"/></svg>
+        Sign in with Autodesk
+      </button>
 
-        <button class="btn btn-blue" id="bc" style="width:100%;justify-content:center;height:40px;font-size:13px;margin-bottom:8px">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="white"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm-1 4h2v4H7V5zm0 5h2v2H7v-2z"/></svg>
-          Sign in with Autodesk
+      <div style="display:flex;align-items:center;gap:8px;margin:10px 0">
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+        <span style="font-size:11px;color:var(--hint)">or</span>
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+      </div>
+
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:10px">
+        <div style="font-size:12px;font-weight:700;margin-bottom:3px;display:flex;align-items:center;gap:7px">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="7" width="10" height="8" rx="1"/><path d="M5 7V5a3 3 0 016 0v2"/></svg>
+          Use Client Secret — full hub access, session only
+        </div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.65;margin-bottom:9px">
+          2-legged auth uses your app credentials directly — no login page. The token can scan <strong>all projects regardless of membership</strong>. Your secret is held in browser memory only and cleared when you close the tab.
+        </div>
+        <input id="csecret" type="password" placeholder="Client Secret"
+          style="width:100%;height:32px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);padding:0 12px;font-size:12px;font-family:monospace;outline:none;margin-bottom:8px"
+          autocomplete="off" autocorrect="off" spellcheck="false"/>
+        <button class="btn btn-g" id="b2l" style="width:100%;justify-content:center;height:36px;font-size:12px">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 2v4M8 10v4M2 8h4M10 8h4"/></svg>
+          Connect with Client Secret
         </button>
-        <button class="btn btn-g" id="bd" style="width:100%;justify-content:center">Try demo data</button>
-
-        <div style="margin-top:14px;padding-top:12px;border-top:0.5px solid var(--border)">
-          <div style="display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--hint);line-height:1.7">
-            <div>✓ &nbsp;Opens Autodesk's official login page — no password sent to this app</div>
-            <div>✓ &nbsp;<code style="background:var(--surface2);padding:1px 3px;border-radius:3px">data:read</code> scope only — cannot write or modify anything</div>
-            <div>✓ &nbsp;Token stored in your browser only, expires in 1 hour</div>
-            <div>✓ &nbsp;No data sent to any server — calls go directly to Autodesk</div>
-          </div>
+        <div style="margin-top:8px;font-size:10px;color:var(--hint);line-height:1.7">
+          ⚠ Never use this on a shared or public computer. The secret lives in browser memory while the tab is open — it is not stored anywhere persistently.<br/>
+          ⚠ Refreshing the page clears the secret from memory. The session token survives a refresh for up to 1 hour, but if it expires you will need to re-enter your credentials.<br/>
+          ⚠ The APS app must be registered as a <strong>Custom Integration</strong> in ACC Account Admin for the 2-legged token to access project files.
         </div>
       </div>
 
-      <div style="background:rgba(226,75,74,0.07);border:0.5px solid rgba(226,75,74,0.2);border-radius:var(--r);padding:12px 14px">
-        <div style="font-size:11px;font-weight:600;color:#f5a09f;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.07em">Use at your own risk</div>
-        <div style="font-size:11px;color:rgba(245,160,159,0.75);line-height:1.75">This is an open-source tool built by an individual Autodesk employee, not an official Autodesk product. It has not undergone a security audit or Autodesk's internal app review process. Scope is <code style="background:rgba(0,0,0,0.2);padding:1px 3px;border-radius:3px">data:read</code> only. Source code is public at <a href="https://github.com/tsb2127/revit-version-checker" target="_blank" style="color:inherit;text-decoration:underline">GitHub</a> for your IT team to review. By signing in you accept these terms.</div>
+      <button class="btn btn-g" id="bd" style="width:100%;justify-content:center">Try demo data</button>
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--hint);line-height:1.8">
+        <div>✓ &nbsp;Read-only scopes only — cannot create, edit, or delete anything in ACC</div>
+        <div>✓ &nbsp;Access token expires in 1 hour — re-connect to refresh</div>
+        <div>✓ &nbsp;All API calls go directly to Autodesk — no third-party server involved</div>
+        <div>✓ &nbsp;<em>Sign in with Autodesk</em> opens Autodesk's official login page — no password handled here</div>
+        <div>✓ &nbsp;<em>Client Secret</em> is held in browser memory only and cleared when the tab closes</div>
       </div>
     </div>
-
-  </div>`;
+    <div style="background:rgba(220,38,38,0.05);border:1px solid rgba(220,38,38,0.15);border-radius:var(--r);padding:12px 14px">
+      <div style="font-size:11px;font-weight:700;color:var(--red);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.07em">Use at your own risk</div>
+      <div style="font-size:11px;color:rgba(180,30,30,0.8);line-height:1.75">Not an official Autodesk product. Not security-audited. Scope is read-only. Source at <a href="https://github.com/tsb2127/revit-version-checker" target="_blank" style="color:inherit;text-decoration:underline">GitHub</a>.</div>
+    </div>
+  </div>
+</div>`;
 }
 
-function rHubs() {
-  return `<div style="max-width:680px">
+function rHubs(){
+  return`<div style="max-width:680px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <h2 style="font-size:15px;font-weight:600">Select a hub to scan</h2>
-      <button class="btn btn-g btn-sm" onclick="S.phase='setup';render()">Change token</button>
+      <h2 style="font-size:16px;font-weight:700">Select a hub to scan</h2>
+      <button class="btn btn-g btn-sm" onclick="S.phase='setup';render()">Change connection</button>
     </div>
     <div class="hub-grid">
       ${S.hubs.map(h=>`<button class="hub-card" onclick="scanHub({id:'${h.id}',name:'${esc(h.attributes.name)}'})">
         <div class="hcn">${esc(h.attributes.name||h.id)}</div>
-        <div class="hcs">${h.attributes.region||'ACC Hub'} — click to scan all projects</div>
+        <div class="hcs">${h.attributes.region||'ACC Hub'} — click to scan all active projects</div>
       </button>`).join('')}
     </div>
   </div>`;
 }
 
-function rDash() {
-  const gl = hubLatest();
-  const totalC4R    = S.projects.reduce((s,p)=>s+p.c4rCount,0);
-  const totalCloud  = S.projects.reduce((s,p)=>s+p.cloudCount,0);
-  const atRiskFiles = S.projects.reduce((s,p)=>s+p.atRisk,0);
-  const critProj    = S.projects.filter(p=>pStatus(p)==='critical').length;
-  const noC4R       = S.projects.filter(p=>pStatus(p)==='no-c4r').length;
+function rDash(){
+  // All summary stats computed dynamically — threshold slider updates are instant
+  const totalC4R=S.projects.reduce((s,p)=>s+p.c4rCount,0);
+  const totalCloud=S.projects.reduce((s,p)=>s+p.cloudCount,0);
+  const atRiskTotal=S.projects.reduce((s,p)=>s+atRiskCount(p),0);
+  const critProj=S.projects.filter(p=>pStatus(p)==='critical').length;
+  const warnCount=S.projects.filter(p=>pStatus(p)==='warn').length;
+  const currentCount=S.projects.filter(p=>pStatus(p)==='ok').length;
 
-  let rows = [...S.projects];
-  if (S.search) { const q=S.search.toLowerCase(); rows=rows.filter(p=>p.name.toLowerCase().includes(q)); }
-  const activeStatuses = Array.isArray(S.statusFilter) ? S.statusFilter : [S.statusFilter];
-  if (!activeStatuses.includes('all')) rows=rows.filter(p=>activeStatuses.includes(pStatus(p)));
-  rows.sort((a,b)=>{
-    let av,bv;
-    if      (S.sortCol==='name')  { av=a.name; bv=b.name; }
-    else if (S.sortCol==='ver')   { av=parseInt(a.c4rVersion||'0'); bv=parseInt(b.c4rVersion||'0'); }
-    else if (S.sortCol==='c4r')   { av=a.c4rCount; bv=b.c4rCount; }
-    else if (S.sortCol==='risk')  { av=a.atRisk; bv=b.atRisk; }
-    else if (S.sortCol==='mod')   { av=a.lastMod||''; bv=b.lastMod||''; }
-    return av<bv?-S.sortDir:av>bv?S.sortDir:0;
-  });
+  const eta=fmtEta(S.eta);
 
-  const th=(col,lbl,w)=>`<th style="width:${w}" onclick="sortBy('${col}')">${lbl}${S.sortCol===col?(S.sortDir===1?' ↑':' ↓'):''}</th>`;
+  return`
+${atRiskTotal>0?`<div class="depr">
+  <svg viewBox="0 0 16 16" fill="none"><path d="M8 2.5L14 13.5H2L8 2.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 6.5v3.5M8 11.5v.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+  <div>
+    <div class="dt">Deprecation risk — action required</div>
+    <div class="db"><strong>${atRiskTotal} workshared model${atRiskTotal!==1?'s':''}</strong> across <strong>${critProj} project${critProj!==1?'s':''}</strong> are on Revit ${S.threshold} or older and affected by the FY27 Q3/Q4 deprecation. Use <strong>Revit Cloud Model Upgrade</strong> in ACC before the deadline.</div>
+  </div>
+</div>`:''}
 
-  return `
-    ${atRiskFiles>0?`<div class="depr">
-      <svg viewBox="0 0 16 16" fill="none"><path d="M8 2.5L14 13.5H2L8 2.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 6.5v3.5M8 11.5v.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-      <div>
-        <div class="dt">Deprecation risk — action required</div>
-        <div class="db"><strong>${atRiskFiles} workshared model${atRiskFiles!==1?'s':''}</strong> across <strong>${critProj} project${critProj!==1?'s':''}</strong> are on Revit ${S.threshold} or older. Autodesk is ending cloud worksharing access for these versions (FY27 Q3/Q4). Use <strong>Revit Cloud Model Upgrade</strong> in ACC to upgrade before the deadline. Revit Cloud Models (non-workshared) are not affected.</div>
-      </div>
-    </div>`:''}
+<div class="alert ${S.authMode==='2-legged'?'a-info':'a-info'}" style="margin-bottom:14px">
+  <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M8 7v5M8 5.2v.8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+  ${S.authMode==='2-legged'
+    ?`<span>Connected with <strong>app credentials (2-legged)</strong>. The app token scans all active projects regardless of project membership. Projects showing <em>No Access</em> means the APS app is not registered as a Custom Integration in ACC Account Admin for this hub.</span>`
+    :`<span>Connected as <strong>${esc(S.uname)}</strong> (3-legged). Projects are pre-checked against your membership — those you are not a member of are marked <em>No Access</em> without scanning. If the project count looks low, verify your <strong>Account Admin</strong> role in ACC settings, or switch to Client Secret (2-legged) for full hub access.</span>`}
+</div>
 
-    <div class="metrics">
-      <div class="metric"><div class="ml">Projects</div><div class="mv">${S.projects.length}</div><div class="ms">${S.scanning?'scanning…':'in hub'}</div></div>
-      <div class="metric"><div class="ml">Hub version</div><div class="mv">${gl||'—'}</div><div class="ms">latest workshared</div></div>
-      <div class="metric"><div class="ml">Cloud Workshared</div><div class="mv">${totalC4R}</div><div class="ms">RCW models</div></div>
-      <div class="metric"><div class="ml">At risk ≤${S.threshold}</div><div class="mv" style="color:${atRiskFiles>0?'var(--red)':'var(--green)'}">${atRiskFiles}</div><div class="ms">${critProj} projects</div></div>
-      <div class="metric"><div class="ml">Cloud Models</div><div class="mv" style="color:var(--hint)">${totalCloud}</div><div class="ms">non-workshared</div></div>
+<div class="metrics">
+  <div class="metric"><div class="ml">Active projects</div><div class="mv">${S.projects.length}</div><div class="ms">${S.scanning?'scanning…':'in hub'}</div></div>
+  <div class="metric"><div class="ml">Cloud Workshared</div><div class="mv">${totalC4R}</div><div class="ms">RCW models</div></div>
+  <div class="metric"><div class="ml">Critical ≤${S.threshold}</div><div class="mv" style="color:${atRiskTotal>0?'var(--red)':'var(--hint)'}">${atRiskTotal}</div><div class="ms">${critProj} project${critProj!==1?'s':''}</div></div>
+  <div class="metric"><div class="ml">Outdated ${S.threshold+1}–${S.threshold+2}</div><div class="mv" style="color:${warnCount>0?'var(--amber)':'var(--hint)'}">${warnCount}</div><div class="ms">project${warnCount!==1?'s':''}</div></div>
+  <div class="metric"><div class="ml">Current ≥${S.threshold+3}</div><div class="mv" style="color:${currentCount>0?'var(--green)':'var(--hint)'}">${currentCount}</div><div class="ms">project${currentCount!==1?'s':''}</div></div>
+  <div class="metric"><div class="ml">Cloud Models</div><div class="mv" style="color:var(--hint)">${totalCloud}</div><div class="ms">non-workshared</div></div>
+</div>
+
+<div class="threshold-bar">
+  <span class="tbar-label">Critical threshold:</span>
+  <div class="tbar-btns">
+    <button class="tbar-btn${S.threshold===2021?' sel':''}" onclick="setThresh(2021)">≤ 2021</button>
+    <button class="tbar-btn${S.threshold===2022?' sel':''}" onclick="setThresh(2022)">≤ 2022</button>
+  </div>
+  <span style="font-size:11px;color:var(--hint)">
+    Critical ≤${S.threshold} &nbsp;·&nbsp; Outdated ${S.threshold+1}–${S.threshold+2} &nbsp;·&nbsp; Current ≥${S.threshold+3}
+  </span>
+</div>
+
+${S.scanning?`<div class="scan-box">
+  <div class="ph"><span class="pt">Scanning all active projects via ACC Admin API…</span><span id="spct" class="pp">${S.pct}%</span></div>
+  <div class="ptrack"><div id="spfill" class="pfill" style="width:${S.pct}%"></div></div>
+  <div class="prow">
+    <div class="pmsg"><span class="spinner"></span><span id="smsg" class="lbl">${esc(S.msg)}</span></div>
+    <span id="seta" class="peta">${eta}</span>
+  </div>
+  <div id="sstats" class="pstats">${S.pdone} done &nbsp;&middot;&nbsp; ${S.activeNames?.size||0} scanning &nbsp;&middot;&nbsp; ${S.ptotal-S.pdone-(S.activeNames?.size||0)} queued</div>
+  <div style="margin-top:10px"><button class="btn btn-g btn-sm" onclick="S.aborted=true;S.scanning=false;render()">Stop scan</button></div>
+</div>`:''}
+
+<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:12px 15px;margin-bottom:12px;box-shadow:var(--shadow)">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:9px">
+    <div style="display:flex;align-items:center;gap:9px">
+      <span style="font-size:14px;font-weight:700">${esc(S.hub.name)}</span>
+      <span class="cbadge">${S.projects.length} projects · ${S.groups.length} group${S.groups.length!==1?"s":""}</span>
     </div>
-
-    <div class="threshold-bar">
-      <span class="tbar-label">Flag workshared models at or below:</span>
-      <div class="tbar-btns">
-        ${[2022,2021,2020,2019].map(y=>`<button class="tbar-btn${S.threshold===y?' sel':''}" onclick="setThresh(${y})">${y}</button>`).join('')}
+    <div class="tcontrols">
+      <div class="sw">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M11.7 10.3a6.5 6.5 0 10-1.4 1.4l3.85 3.85a1 1 0 001.4-1.4l-3.85-3.85zM6.5 11a4.5 4.5 0 110-9 4.5 4.5 0 010 9z"/></svg>
+        <input class="sinput" placeholder="Search projects…" value="${esc(S.search)}" oninput="S.search=this.value;render()"/>
       </div>
-      <span class="tbar-desc">Only workshared models are counted toward risk</span>
+      <div class="filter-dd" id="filter-dd">
+        ${(()=>{
+          const opts=[
+            {v:"critical",label:`Critical (\u2264${S.threshold})`,dot:"var(--red)"},
+            {v:"warn",label:`Outdated (${S.threshold+1}\u2013${S.threshold+2})`,dot:"var(--amber)"},
+            {v:"ok",label:`Current (\u2265${S.threshold+3})`,dot:"var(--green)"},
+            {v:"mixed",label:"Mixed versions",dot:"var(--purple)"},
+            {v:"no-c4r",label:"No workshared files",dot:"var(--hint)"},
+            {v:"no-access",label:"No file access (403)",dot:"var(--hint)"},
+          ];
+          const sel=S.statusFilters;
+          const btnLabel=sel.size===0?"All statuses":sel.size===1?opts.find(o=>sel.has(o.v))?.label||"1 selected":`${sel.size} statuses`;
+          const panel=S.filterOpen?`<div class="filter-panel" id="filter-panel">
+            ${opts.map(o=>`<div class="filter-opt" onclick="event.stopPropagation();toggleFilter('${o.v}')">
+              <div class="filter-cb${sel.has(o.v)?" on":""}"><svg viewBox="0 0 10 10" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5l2.5 2.5L8 3"/></svg></div>
+              <span style="width:7px;height:7px;border-radius:50%;background:${o.dot};flex-shrink:0;display:inline-block"></span>
+              <span>${o.label}</span>
+            </div>`).join("")}
+            <div class="fdiv"></div>
+            <div class="filter-clear" onclick="event.stopPropagation();clearFilters()">
+              <span>Clear all filters</span>
+              ${sel.size>0?`<span style="background:var(--blue);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700">${sel.size}</span>`:""}
+            </div>
+          </div>`:"";
+          return `<button class="filter-btn${S.filterOpen?" open":""}${sel.size>0?" active":""}" onclick="event.stopPropagation();S.filterOpen=!S.filterOpen;render()">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M4 8h8M6 12h4"/></svg>
+            ${esc(btnLabel)}
+            <svg viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 1l4 4 4-4"/></svg>
+          </button>${panel}`;
+        })()}
+      </div>
+      <button class="btn btn-g btn-sm" onclick="exportCsv()" title="Export all groups to CSV">
+        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 11v2h10v-2M8 3v8M5 8l3 3 3-3"/></svg>All CSV
+      </button>
+      <button class="btn btn-g btn-sm" onclick="exportPdf()" ${S.scanning?"disabled":""} title="Export all groups to PDF">
+        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 1h6l4 4v10H4V1zM9 1v4h4M6 10h4M6 12h2"/></svg>All PDF
+      </button>
+      <button class="btn btn-g btn-sm" onclick="S.phase='hubs';render()">Change hub</button>
     </div>
+  </div>
+</div>
 
-    ${S.scanning?`<div class="scan-box">
-      <div class="ph"><span class="pt">Scanning all projects — identifying Revit Cloud Workshared vs Cloud Models</span><span class="pp">${S.pct}%</span></div>
-      <div class="ptrack"><div class="pfill" style="width:${S.pct}%"></div></div>
-      <div class="pmsg"><span class="spinner"></span>${esc(S.msg)}</div>
-      <div class="pstats">${S.pdone} of ${S.ptotal} projects done</div>
-      <div style="margin-top:9px"><button class="btn btn-g btn-sm" onclick="S.aborted=true;S.scanning=false;render()">Stop scan</button></div>
-    </div>`:''}
+${S.groups.map((grp,gi)=>rGroup(grp,gi)).join("")}
 
-    <div class="tc">
-      <div class="thead-row">
-        <div style="display:flex;align-items:center;gap:9px">
-          <span class="ttitle">${esc(S.hub.name)}</span>
-          <span class="cbadge">${rows.length} of ${S.projects.length} projects</span>
-        </div>
-        <div class="tcontrols">
-          <div class="sw">
-            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M11.7 10.3a6.5 6.5 0 10-1.4 1.4l3.85 3.85a1 1 0 001.4-1.4l-3.85-3.85zM6.5 11a4.5 4.5 0 110-9 4.5 4.5 0 010 9z"/></svg>
-            <input class="sinput" placeholder="Search projects…" value="${esc(S.search)}" oninput="S.search=this.value;render()"/>
-          </div>
-          <select class="fsel" multiple size="1" title="Ctrl/Cmd+click to select multiple statuses" onchange="S.statusFilter=[...this.selectedOptions].map(o=>o.value);if(!S.statusFilter.length)S.statusFilter=['all'];if(S.statusFilter.includes('all')&&S.statusFilter.length>1)S.statusFilter=S.statusFilter.filter(v=>v!=='all');render()">
-            <option value="all" ${S.statusFilter.includes('all')?'selected':''}>All statuses</option>
-            <option value="critical" ${S.statusFilter.includes('critical')?'selected':''}>Critical (at risk)</option>
-            <option value="warn"     ${S.statusFilter.includes('warn')?'selected':''}>Outdated</option>
-            <option value="ok"       ${S.statusFilter.includes('ok')?'selected':''}>Current</option>
-            <option value="no-c4r"   ${S.statusFilter.includes('no-c4r')?'selected':''}>No workshared files</option>
-          </select>
-          <button class="btn btn-g btn-sm" onclick="exportCsv()">Export CSV</button>
-          <button class="btn btn-g btn-sm" onclick="exportPdf()">Export PDF</button>
-          <button class="btn btn-g btn-sm" onclick="S.phase='hubs';render()">Change hub</button>
-        </div>
-      </div>
-
-      <div style="overflow-x:auto"><table>
-        <thead><tr>
-          <th style="width:28px"></th>
-          ${th('name','Project','31%')}
-          ${th('ver','<span class="th-tip" data-tip="Revit Cloud Workshared version">RCW version</span>','11%')}
-          ${th('c4r','<span class="th-tip" data-tip="Revit Cloud Workshared files">RCW files</span>','8%')}
-          ${th('risk','At risk','8%')}
-          <th style="width:9%"><span class="th-tip" data-tip="Revit Cloud Model — no version lock">RC files</span></th>
-          <th style="width:11%">Status</th>
-          ${th('mod','Last modified','14%')}
-          <th style="width:5%">ACC</th>
-        </tr></thead>
-        <tbody>
-          ${rows.length===0?`<tr><td colspan="9"><div class="empty"><div class="et">No projects match</div></div></td></tr>`:''}
-          ${rows.map(p=>rRow(p,gl)).join('')}
-        </tbody>
-      </table></div>
-
-      <div class="legend">
-        <span style="font-size:10px;font-weight:600;color:var(--hint);text-transform:uppercase;letter-spacing:0.08em;margin-right:4px">Legend:</span>
-        <span class="legend-item"><span class="type-pill tp-c4r" data-tip="Revit Cloud Workshared">RCW</span> Version is locked — counted toward deprecation risk</span>
-        <span class="legend-item"><span class="type-pill tp-cloud" data-tip="Revit Cloud Model">RC</span> No version lock — excluded from risk</span>
-      </div>
-    </div>`;
+<div class="legend" style="border-radius:var(--rl);border:1px solid var(--border);margin-top:2px">
+  <span style="font-size:10px;font-weight:700;color:var(--hint);text-transform:uppercase;letter-spacing:0.08em;margin-right:4px">Legend:</span>
+  <span class="legend-item"><span class="vb v-ok" style="font-size:10px;padding:1px 7px">≥${S.threshold+3}</span> Current</span>
+  <span class="legend-item"><span class="vb v-warn" style="font-size:10px;padding:1px 7px">${S.threshold+1}–${S.threshold+2}</span> Outdated</span>
+  <span class="legend-item"><span class="vb v-risk" style="font-size:10px;padding:1px 7px">≤${S.threshold}</span> Critical</span>
+  <span class="legend-item"><span class="type-pill tp-c4r">RCW</span> Workshared</span>
+  <span class="legend-item"><span class="type-pill tp-cloud">RC</span> Not workshared</span>
+</div>`;
 }
 
-function rRow(p, gl) {
-  const status  = pStatus(p);
-  const isExp   = S.expanded.has(p.id);
-  const isRisk  = status === 'critical';
-  const isMixed = p.c4rVersion === 'MIXED';
+// ─── RENDER GROUP SECTION ───────────────────────────────────────────────────────
+function rGroup(grp,gi){
+  const gProjects=S.projects.slice(grp.start,grp.end);
+  let rows=[...gProjects];
+  if(S.search){const q=S.search.toLowerCase();rows=rows.filter(p=>p.name.toLowerCase().includes(q));}
+  if(S.statusFilters.size>0)rows=rows.filter(p=>S.statusFilters.has(pStatus(p)));
+  rows.sort((a,b)=>{
+    let av,bv;
+    if(S.sortCol==="name"){av=a.name.toLowerCase();bv=b.name.toLowerCase();}
+    else if(S.sortCol==="ver"){av=(!a.c4rVersion||a.c4rVersion==="MIXED")?-1:parseInt(a.c4rVersion);bv=(!b.c4rVersion||b.c4rVersion==="MIXED")?-1:parseInt(b.c4rVersion);}
+    else if(S.sortCol==="risk"){av=atRiskCount(a);bv=atRiskCount(b);}
+    else if(S.sortCol==="mod"){av=a.lastMod||"";bv=b.lastMod||"";}
+    else{av=0;bv=0;}
+    return av<bv?-S.sortDir:av>bv?S.sortDir:0;
+  });
+  const gc=gProjects.filter(p=>pStatus(p)==="critical").length;
+  const gw=gProjects.filter(p=>pStatus(p)==="warn").length;
+  const go=gProjects.filter(p=>pStatus(p)==="ok").length;
+  let summaryHtml="";
+  if(grp.status==="pending"){
+    summaryHtml=`<span class="chip chip-pending" style="font-size:10px">${grp.ptotal} queued</span>`;
+  }else if(grp.status==="scanning"){
+    summaryHtml=`<span class="chip chip-scan" style="font-size:10px"><span class="spinner" style="width:9px;height:9px;margin-right:3px"></span>Scanning</span>`;
+  }else{
+    if(gc>0)summaryHtml+=`<span class="gbadge gb-crit">${gc} Critical</span>`;
+    if(gw>0)summaryHtml+=`<span class="gbadge gb-warn">${gw} Outdated</span>`;
+    if(go>0)summaryHtml+=`<span class="gbadge gb-ok">${go} Current</span>`;
+    if(!gc&&!gw&&!go)summaryHtml+=`<span class="gbadge gb-none">No RCW</span>`;
+  }
+  const exportBtns=grp.status==="done"?`
+    <button class="btn btn-g btn-sm" onclick="event.stopPropagation();exportCsv(${gi})" title="Export group ${gi+1} to CSV">
+      <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 11v2h10v-2M8 3v8M5 8l3 3 3-3"/></svg>CSV
+    </button>
+    <button class="btn btn-g btn-sm" onclick="event.stopPropagation();exportPdf(${gi})" title="Export group ${gi+1} to PDF">
+      <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 1h6l4 4v10H4V1zM9 1v4h4M6 10h4M6 12h2"/></svg>PDF
+    </button>`:"";
+  const isOpen=grp.expanded;
+  const th=(col,lbl,w)=>`<th style="width:${w}" onclick="sortBy('${col}')">${lbl}${S.sortCol===col?(S.sortDir===1?" ↑":" ↓"):""}</th>`;
+  const pct=grp.ptotal>0?Math.round((grp.pdone/grp.ptotal)*100):0;
+  const ac=grp.activeNames?.size||0;
+  return`<div class="group-section">
+  <div class="group-hdr${isOpen?" open":""}" onclick="toggleGroup('${grp.id}')">
+    <svg class="gchev${isOpen?" open":""}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+    <span class="gname">${esc(grp.label)}</span>
+    <div class="gstats">${summaryHtml}</div>
+    ${exportBtns}
+  </div>
+  ${grp.status==="scanning"?`<div class="gprog-wrap"><div id="gpfill-${grp.id}" class="gpfill" style="width:${pct}%"></div></div>
+  <div id="gpstats-${grp.id}" class="gpstats">${grp.pdone} done &middot; ${ac} scanning &middot; ${grp.ptotal-grp.pdone-ac} queued <span id="gpeta-${grp.id}" style="margin-left:8px;color:var(--hint)">${fmtEta(grp.eta)||""}</span></div>`:""}
+  ${isOpen?`<div class="group-body"><div style="overflow-x:auto"><table>
+    <thead><tr>
+      <th style="width:28px"></th>
+      ${th("name","Project","31%")}
+      ${th("ver","RCW Version","11%")}
+      <th style="width:8%">RCW Files</th>
+      ${th("risk","At Risk","8%")}
+      <th style="width:9%">RC Files</th>
+      <th style="width:11%">Status</th>
+      ${th("mod","Last Modified","13%")}
+      <th style="width:5%">ACC</th>
+    </tr></thead>
+    <tbody>
+      ${rows.length===0?`<tr><td colspan="9"><div class="empty"><div class="et">No projects match</div><div class="es">Clear the filter or search term</div></div></td></tr>`:""}
+      ${rows.map(p=>rRow(p)).join("")}
+    </tbody>
+  </table></div></div>`:""}
+</div>`;
+}
 
-  // version display — handle mixed edge case
-  const verHtml = isMixed
-    ? `<span class="vb v-old" title="Multiple C4R versions found: ${esc(p.c4rVersions.join(', '))}">MIXED</span>`
-    : p.c4rVersion
-      ? `<span class="vb ${isAtRisk(p.c4rVersion)?'v-risk':vClass(p.c4rVersion,gl)}">${p.c4rVersion}</span>`
-      : `<span style="font-size:12px;color:var(--hint)">—</span>`;
-
-  const chipMap = {
-    critical:`<span class="chip chip-crit">Critical</span>`,
-    warn:    `<span class="chip chip-warn">Outdated</span>`,
-    ok:      `<span class="chip chip-ok">Current</span>`,
-    'no-c4r':`<span class="chip chip-none">No RCW</span>`,
-    scanning:`<span class="chip chip-scan"><span class="spinner" style="width:9px;height:9px;margin-right:3px"></span>Scanning</span>`
+function rRow(p){
+  const status=pStatus(p),isExp=S.expanded.has(p.id),isRisk=status==='critical',isMixed=p.c4rVersion==='MIXED';
+  const ar=atRiskCount(p);
+  const verHtml=isMixed
+    ?`<span class="vb v-warn" title="Multiple versions: ${esc((p.c4rVersions||[]).join(', '))}">MIXED</span>`
+    :p.c4rVersion
+      ?`<span class="vb ${vClass(p.c4rVersion)}">${p.c4rVersion}</span>`
+      :`<span style="font-size:12px;color:var(--hint)">—</span>`;
+  const chips={
+    critical:   `<span class="chip chip-crit">Critical</span>`,
+    warn:       `<span class="chip chip-warn">Outdated</span>`,
+    ok:         `<span class="chip chip-ok">Current</span>`,
+    mixed:      `<span class="chip chip-mixed">Mixed</span>`,
+    'no-c4r':   `<span class="chip chip-none">No RCW</span>`,
+    'no-access':`<span class="chip chip-noaccess" title="User is not a member of this project">No Access</span>`,
+    pending:    `<span class="chip chip-pending">Queued</span>`,
+    scanning:   `<span class="chip chip-scan"><span class="spinner" style="width:9px;height:9px;margin-right:3px"></span>Scanning</span>`
   };
-
-  const hasFiles = p.c4rCount > 0 || p.cloudCount > 0;
-
-  let html = `<tr class="${isRisk?'risk-row':''}">
+  const hasFiles=p.c4rCount>0||p.cloudCount>0;
+  let html=`<tr class="${isRisk?'risk-row':''}">
     <td style="padding-left:10px">${hasFiles?`<button class="xbtn${isExp?' open':''}" onclick="toggleX('${p.id}')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg></button>`:''}</td>
-    <td>
-      <div class="pname" title="${esc(p.name)}">${esc(p.name)}</div>
-      ${isMixed?`<div class="psub" style="color:var(--amber)">Multiple workshared versions — check files</div>`:''}
-    </td>
+    <td><div class="pname" title="${esc(p.name)}">${esc(p.name)}</div>${isMixed?`<div class="psub" style="color:var(--amber)">Multiple workshared versions — expand to inspect</div>`:''}</td>
     <td>${verHtml}</td>
     <td style="color:var(--muted)">${p.c4rCount||'—'}</td>
-    <td style="color:${p.atRisk>0?'var(--red)':'var(--hint)'};font-weight:${p.atRisk>0?'600':'400'}">${p.atRisk||'—'}</td>
+    <td style="color:${ar>0?'var(--red)':'var(--hint)'};font-weight:${ar>0?700:400}">${ar||'—'}</td>
     <td style="color:var(--hint)">${p.cloudCount||'—'}</td>
-    <td>${chipMap[status]||''}</td>
+    <td>${chips[status]||''}</td>
     <td style="font-size:11px;color:var(--hint)">${fDate(p.lastMod)}</td>
-    <td>${p.accUrl?`<a class="acc-link" href="${esc(p.accUrl)}" target="_blank" title="Open in ACC"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M10 2h4v4M14 2L8 8M3 4h3v1H4v7h7v-3h1v4H3V4z"/></svg></a>`:''}</td>
+    <td>${p.accUrl?`<a class="acc-link" href="${esc(p.accUrl)}" target="_blank"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M10 2h4v4M14 2L8 8M3 4h3v1H4v7h7v-3h1v4H3V4z"/></svg></a>`:''}</td>
   </tr>`;
-
-  if (isExp) {
-    html += `<tr class="xrow"><td colspan="9"><div class="xinner">`;
-
-    // C4R section
-    if (p.c4rFiles && p.c4rFiles.length > 0) {
-      html += `<div class="xsec-head"><span class="type-pill tp-c4r" data-tip="Revit Cloud Workshared" style="margin-right:6px">RCW</span> Revit Cloud Workshared — version is locked, counts toward deprecation risk</div>
-        <table class="xmini"><thead><tr>
-          <td style="color:var(--hint);font-size:10px;text-transform:uppercase;padding-bottom:4px;width:28%">File</td>
-          <td style="color:var(--hint);font-size:10px;text-transform:uppercase;width:10%">Version</td>
-          <td style="color:var(--hint);font-size:10px;text-transform:uppercase;width:30%">Path</td>
-          <td style="color:var(--hint);font-size:10px;text-transform:uppercase">Modified</td>
-          <td style="color:var(--hint);font-size:10px;text-transform:uppercase">By</td>
-        </tr></thead><tbody>
-        ${p.c4rFiles.map(f=>`<tr class="${isAtRisk(f.version)?'xrisk':''}">
+  if(isExp){
+    html+=`<tr class="xrow"><td colspan="9"><div class="xinner">`;
+    if((p.c4rFiles||[]).length>0){
+      html+=`<div class="xsec-head"><span class="type-pill tp-c4r" style="margin-right:6px">RCW</span>Revit Cloud Workshared — version locked, counts toward risk</div>
+      <table class="xmini"><thead><tr>
+        <td style="color:var(--hint);font-size:10px;text-transform:uppercase;padding-bottom:4px;width:28%">File</td>
+        <td style="color:var(--hint);font-size:10px;text-transform:uppercase;width:10%">Version</td>
+        <td style="color:var(--hint);font-size:10px;text-transform:uppercase;width:10%">Status</td>
+        <td style="color:var(--hint);font-size:10px;text-transform:uppercase;width:28%">Path</td>
+        <td style="color:var(--hint);font-size:10px;text-transform:uppercase">Modified</td>
+        <td style="color:var(--hint);font-size:10px;text-transform:uppercase">By</td>
+      </tr></thead><tbody>
+      ${(p.c4rFiles||[]).map(f=>{
+        const fv=parseInt(f.version||0);
+        const fc=isAtRisk(f.version)?'xrisk':'';
+        const fchip=isAtRisk(f.version)
+          ?`<span class="chip chip-crit" style="font-size:9px">Critical</span>`
+          :fv<=S.threshold+2
+            ?`<span class="chip chip-warn" style="font-size:9px">Outdated</span>`
+            :`<span class="chip chip-ok" style="font-size:9px">Current</span>`;
+        return`<tr class="${fc}">
           <td>${esc(f.name)}</td>
-          <td><span class="vb ${isAtRisk(f.version)?'v-risk':vClass(f.version,gl)}" style="font-size:10px;padding:1px 7px">${f.version||'—'}</span></td>
+          <td><span class="vb ${vClass(f.version)}" style="font-size:10px;padding:1px 7px">${f.version||'—'}</span></td>
+          <td>${fchip}</td>
           <td style="font-size:11px" title="${esc(f.path||'')}">${esc(f.path||'—')}</td>
           <td>${fDate(f.modTime)}</td>
           <td>${esc(f.modBy||'—')}</td>
-        </tr>`).join('')}
-        </tbody></table>`;
+        </tr>`;
+      }).join('')}
+      </tbody></table>`;
     }
-
-    // Cloud storage section
-    if (p.cloudFiles && p.cloudFiles.length > 0) {
-      html += `<div class="xsec-head" style="margin-top:10px"><span class="type-pill tp-cloud" data-tip="Revit Cloud Model" style="margin-right:6px">RC</span> Revit Cloud Model — uploaded without worksharing, no version lock, not counted toward risk</div>
-        <table class="xmini"><thead><tr>
-          <td style="color:var(--hint);font-size:10px;text-transform:uppercase;padding-bottom:4px;width:28%">File</td>
-          <td style="color:var(--hint);font-size:10px;text-transform:uppercase;width:10%">Version</td>
-          <td style="color:var(--hint);font-size:10px;text-transform:uppercase;width:30%">Path</td>
-          <td style="color:var(--hint);font-size:10px;text-transform:uppercase">Modified</td>
-          <td style="color:var(--hint);font-size:10px;text-transform:uppercase">By</td>
-        </tr></thead><tbody>
-        ${p.cloudFiles.map(f=>`<tr class="xcloud">
-          <td>${esc(f.name)}</td>
-          <td><span class="vb v-none" style="font-size:10px;padding:1px 7px">${f.version||'—'}</span></td>
-          <td style="font-size:11px" title="${esc(f.path||'')}">${esc(f.path||'—')}</td>
-          <td>${fDate(f.modTime)}</td>
-          <td>${esc(f.modBy||'—')}</td>
-        </tr>`).join('')}
-        </tbody></table>`;
+    if((p.skippedTopFolders||0)>0){
+      html+=`<div style="margin:8px 0 4px;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;font-size:11px;color:var(--muted)">
+        ${p.skippedTopFolders} top-level folder${p.skippedTopFolders!==1?'s':''} skipped (Plans, Photos, etc.) — these are ACC system folders that cannot contain Revit models.
+      </div>`;
     }
-
-    html += `</div></td></tr>`;
+    if(p.skippedFolders>0){
+      html+=`<div style="margin:8px 0 4px;padding:7px 10px;background:rgba(180,83,9,0.07);border:1px solid rgba(180,83,9,0.2);border-radius:5px;font-size:11px;color:var(--amber)">
+        ⚠ ${p.skippedFolders} sub-folder${p.skippedFolders!==1?'s were':' was'} not accessible (403) — files inside may not be shown. This is usually the Plans folder or an admin-restricted area.
+      </div>`;
+    }
+    if((p.failedFiles||[]).length>0){
+      html+=`<div style="margin:8px 0 4px;padding:7px 10px;background:rgba(180,83,9,0.07);border:1px solid rgba(180,83,9,0.2);border-radius:5px;font-size:11px;color:var(--amber)">
+        ⚠ ${p.failedFiles.length} .rvt file${p.failedFiles.length!==1?'s':''}  could not be checked (version API call failed after retries) — these may include RCW models. Check them manually in ACC.
+        <table class="xmini" style="margin-top:6px"><tbody>
+        ${p.failedFiles.map(f=>`<tr><td>${esc(f.name)}</td><td style="font-size:11px">${esc(f.path||'')}</td><td>${fDate(f.modTime)}</td></tr>`).join('')}
+        </tbody></table>
+      </div>`;
+    }
+    if(p.scanError){
+      html+=`<div style="margin:8px 0 4px;padding:7px 10px;background:var(--red-dim);border:1px solid rgba(220,38,38,0.2);border-radius:5px;font-size:11px;color:var(--red)">
+        Scan error: ${esc(p.scanError)}
+      </div>`;
+    }
+    if(p.noAccess){
+      const msg=S.authMode==='2-legged'
+        ?'The app token was denied access to this project (403). Ensure the APS app is registered as a Custom Integration in ACC Account Admin and that the integration has the required permissions.'
+        :'This user account is not a project member. The ACC Admin API listed the project, but file-level access requires project membership. Add yourself to the project in ACC, or use Client Secret (2-legged) for membership-independent access.';
+      html+=`<div style="margin:8px 0 4px;padding:7px 10px;background:var(--surface2);border:1px solid var(--border2);border-radius:5px;font-size:11px;color:var(--muted)">${msg}</div>`;
+    }
+    if((p.cloudFiles||[]).length>0){
+      html+=`<div class="xsec-head" style="margin-top:10px"><span class="type-pill tp-cloud" style="margin-right:6px">RC</span>Revit Cloud Model — uploaded without worksharing, not counted toward risk</div>
+      <table class="xmini"><thead><tr>
+        <td style="color:var(--hint);font-size:10px;text-transform:uppercase;padding-bottom:4px;width:28%">File</td>
+        <td style="color:var(--hint);font-size:10px;text-transform:uppercase;width:30%">Path</td>
+        <td style="color:var(--hint);font-size:10px;text-transform:uppercase">Modified</td>
+        <td style="color:var(--hint);font-size:10px;text-transform:uppercase">By</td>
+      </tr></thead><tbody>
+      ${(p.cloudFiles||[]).map(f=>`<tr class="xcloud">
+        <td>${esc(f.name)}</td>
+        <td style="font-size:11px">${esc(f.path||'—')}</td>
+        <td>${fDate(f.modTime)}</td>
+        <td>${esc(f.modBy||'—')}</td>
+      </tr>`).join('')}
+      </tbody></table>`;
+    }
+    html+=`</div></td></tr>`;
   }
-
   return html;
 }
 
-function rAbout() {
-  return `<div style="max-width:540px">
-    <h2 style="font-size:17px;font-weight:600;margin-bottom:18px">About</h2>
+function rAbout(){
+  return`<div style="max-width:560px">
+    <h2 style="font-size:18px;font-weight:700;margin-bottom:18px">About</h2>
     <div class="card">
-      <div style="font-size:13px;font-weight:600;margin-bottom:10px">Revit Cloud Workshared vs Revit Cloud Model — why it matters</div>
-      <p style="font-size:13px;color:var(--muted);line-height:1.8;margin-bottom:10px">Not all RVT files in ACC are the same. The app distinguishes two types:</p>
-      <div style="display:flex;flex-direction:column;gap:10px;font-size:13px;margin-bottom:10px">
-        <div style="display:flex;gap:10px;align-items:flex-start">
-          <span class="type-pill tp-c4r" data-tip="Revit Cloud Workshared" style="flex-shrink:0;margin-top:2px">RCW</span>
-          <span style="color:var(--muted)">Cloud Worksharing is enabled. The entire team is locked to one Revit version. These are the files affected by Autodesk's deprecation timeline. Detected via <code style="font-size:11px;background:var(--surface2);padding:1px 4px;border-radius:3px">extension.type</code> containing <code style="font-size:11px;background:var(--surface2);padding:1px 4px;border-radius:3px">C4RModel</code>.</span>
-        </div>
-        <div style="display:flex;gap:10px;align-items:flex-start">
-          <span class="type-pill tp-cloud" data-tip="Revit Cloud Model" style="flex-shrink:0;margin-top:2px">RC</span>
-          <span style="color:var(--muted)">A Revit file uploaded to ACC without worksharing. No version lock — anyone can open it in any version. Not affected by the deprecation deadline. Excluded from all risk counts.</span>
-        </div>
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px">Status tiers (with threshold = 2021)</div>
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:7px 12px;font-size:13px;align-items:start">
+        <span class="chip chip-crit">Critical</span><span style="color:var(--muted)">≤ 2021 — Must upgrade before FY27 Q3/Q4. Cloud Worksharing access will be revoked.</span>
+        <span class="chip chip-warn">Outdated</span><span style="color:var(--muted)">2022–2023 — Not yet at the deadline but upgrade planning is recommended.</span>
+        <span class="chip chip-ok">Current</span><span style="color:var(--muted)">≥ 2024 — No action required.</span>
       </div>
-      <p style="font-size:12px;color:var(--hint);line-height:1.7">If a project shows "MIXED" versions, multiple workshared files in that project were initiated on different Revit versions. This is unusual and may indicate a partial upgrade — expand the row to see which files are affected.</p>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:12px;color:var(--hint)">Set threshold to 2022 to tighten criteria: ≤2022 becomes Critical, 2023–2024 Outdated, ≥2025 Current.</div>
     </div>
     <div class="card">
-      <div style="font-size:13px;font-weight:600;margin-bottom:10px">Built by</div>
-      <p style="font-size:13px;color:var(--muted);line-height:1.8">Tanmay Bhalerao — Senior Account Technical Lead at Autodesk. Built this because customers kept asking for it and it didn't exist. Not a software engineer by background — proof that the APS APIs are approachable for anyone willing to experiment.</p>
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px">Status — all types</div>
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:12px;align-items:start">
+        <span class="chip chip-crit">Critical</span><span style="color:var(--muted)">Version ≤ threshold. Must upgrade before FY27 Q3/Q4 — cloud worksharing access will be revoked.</span>
+        <span class="chip chip-warn">Outdated</span><span style="color:var(--muted)">Threshold +1 or +2. Not at the deadline yet but upgrade planning is recommended.</span>
+        <span class="chip chip-ok">Current</span><span style="color:var(--muted)">Threshold +3 or newer. No action required.</span>
+        <span class="chip chip-mixed">Mixed</span><span style="color:var(--muted)">Multiple Revit versions found in the same project. Expand the row to inspect individual files.</span>
+        <span class="chip chip-none">No RCW</span><span style="color:var(--muted)">No Cloud Workshared files found. Project is not affected by the deprecation.</span>
+        <span class="chip chip-noaccess">No Access</span><span style="color:var(--muted)">Project listed by Admin API but file access was denied (403). See expanded row for details and resolution steps.</span>
+      </div>
+    </div>
+    <div class="card">
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px">Authentication modes</div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.8;display:grid;gap:8px">
+        <div><strong style="color:var(--text)">Sign in with Autodesk (3-legged)</strong> — Standard OAuth PKCE flow. The token represents the signed-in user. File access is limited to projects the user is a member of. Projects outside membership are pre-detected and marked No Access before scanning begins. Requires Account Admin role to list all projects via the Admin API.</div>
+        <div><strong style="color:var(--text)">Client Secret (2-legged)</strong> — Uses app credentials directly. The token represents the APS application, not a user. File access covers all projects regardless of individual membership — this resolves the common failure on older BIM 360-era projects. The secret is held in browser memory only and cleared when the tab closes. Requires the APS app to be registered as a Custom Integration in ACC Account Admin.</div>
+      </div>
+    </div>
+    <div class="card">
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px">How scanning works</div>
+      <p style="font-size:13px;color:var(--muted);line-height:1.8;margin-bottom:6px">Uses <code style="font-size:11px;background:var(--surface2);padding:1px 5px;border-radius:3px">GET /construction/admin/v1/accounts/{accountId}/projects</code> to enumerate every active project. Folder contents are fetched with full pagination. Archived projects are excluded automatically.</p>
+      <p style="font-size:12px;color:var(--hint);line-height:1.7">A file is Revit Cloud Workshared (RCW) if its latest version's <code style="background:var(--surface2);padding:1px 4px;border-radius:3px">extension.type</code> contains <code style="background:var(--surface2);padding:1px 4px;border-radius:3px">C4RModel</code>. Only RCW files carry a version lock and count toward deprecation risk. Plain cloud uploads (RC) do not.</p>
+    </div>
+    <div class="card">
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px">Version</div>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+        <span style="font-size:20px;font-weight:700;color:var(--text)">v${VERSION}</span>
+        <span style="font-size:12px;color:var(--hint)">${RELEASE_DATE}</span>
+        <a href="${CHANGELOG_URL}" target="_blank" style="font-size:12px;color:var(--blue);text-decoration:none;font-weight:600">Release notes →</a>
+      </div>
+      <p style="font-size:12px;color:var(--hint);line-height:1.7">Versioning follows semantic versioning (MAJOR.MINOR.PATCH). v1.0.0 will be tagged once scanning accuracy is confirmed in production against large hubs.</p>
+    </div>
+    <div class="card">
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px">Built by</div>
+      <p style="font-size:13px;color:var(--muted);line-height:1.8">Tanmay Bhalerao — Senior Account Technical Lead at Autodesk. Admin API integration, 2-legged auth, PDF export, group scanning, rate limiting, and accuracy tracking contributed as community enhancement.</p>
     </div>
   </div>`;
 }
 
-// ─── MAIN RENDER ─────────────────────────────────────────────────────────────
-function render() {
-  document.getElementById('tr').innerHTML = S.uname
-    ? `<div style="display:flex;align-items:center;gap:8px">
+// ─── MAIN RENDER ──────────────────────────────────────────────────────────────
+function render(){
+  // Version badge — set once; VERSION and CHANGELOG_URL are constants defined in script
+  const _vb=document.getElementById('ver-badge');
+  if(_vb&&!_vb._set){_vb.href=CHANGELOG_URL;_vb.textContent='v'+VERSION;_vb._set=true;}
+  document.getElementById('tr').innerHTML=S.uname
+    ?`<div style="display:flex;align-items:center;gap:8px">
         <div class="user-chip"><div class="ava">${S.uname.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase()}</div><span class="uname">${esc(S.uname)}</span></div>
-        <button id="b-signout" class="btn btn-g btn-sm" style="font-size:11px">Sign out</button>
-       </div>`
-    : '';
-
-  const sc = document.getElementById('sctx');
-  if (S.hub) {
-    const tot = S.projects.reduce((s,p)=>s+p.c4rCount,0);
-    sc.innerHTML = `<div class="slabel">Hub</div><div style="padding:5px 9px;font-size:12px">
-      <div style="font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:2px">${esc(S.hub.name)}</div>
-      <div style="font-size:11px;color:var(--hint)">${S.projects.length} projects</div>
-      ${tot>0?`<div style="font-size:11px;color:var(--green);margin-top:3px">${tot} workshared models found</div>`:''}
+        <button id="b-signout" class="btn btn-g btn-sm">Sign out</button>
+      </div>`:'';
+  const sc=document.getElementById('sctx');
+  if(S.hub){
+    const tot=S.projects.reduce((s,p)=>s+p.c4rCount,0);
+    sc.innerHTML=`<div class="slabel">Hub</div><div style="padding:5px 10px;font-size:12px">
+      <div style="font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:2px">${esc(S.hub.name)}</div>
+      <div style="font-size:11px;color:var(--hint)">${S.projects.length} active projects</div>
+      ${tot>0?`<div style="font-size:11px;color:var(--green);margin-top:3px">${tot} workshared models</div>`:''}
     </div>`;
-  } else sc.innerHTML='';
-
+  }else sc.innerHTML='';
   ['scan','about'].forEach(k=>{
     const el=document.getElementById('nav-'+k);
     if(el)el.className='ni'+((k==='scan'&&['setup','hubs','dash'].includes(S.phase))||(k===S.phase)?' active':'');
   });
-
   const mc=document.getElementById('mc');
   let html='';
   if(S.error)html+=`<div class="alert a-err"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm-.75 4h1.5v5h-1.5V5zm0 6h1.5v1.5h-1.5V11z"/></svg><span>${esc(S.error)} <button class="btn btn-g btn-sm" style="margin-left:8px" onclick="S.error=null;render()">Dismiss</button></span></div>`;
-
-  if      (S.phase==='setup') html+=rSetup();
-  else if (S.phase==='hubs')  html+=rHubs();
-  else if (S.phase==='dash')  html+=rDash();
-  else if (S.phase==='about') html+=rAbout();
+  if     (S.phase==='setup')html+=rSetup();
+  else if(S.phase==='hubs') html+=rHubs();
+  else if(S.phase==='dash') html+=rDash();
+  else if(S.phase==='about')html+=rAbout();
   mc.innerHTML=html;
   bind();
 }
 
-function bind() {
+function bind(){
   const bc=document.getElementById('bc');
   if(bc)bc.onclick=()=>{
-    const cid = (document.getElementById('cid')?.value||'').trim();
+    const cid=(document.getElementById('cid')?.value||'').trim();
     if(!cid){S.error='Please enter your APS Client ID first.';render();return;}
-    S.clientId=cid;
-    localStorage.setItem('rvt_client_id',cid);
-    startPKCE(cid);
+    S.clientId=cid;localStorage.setItem('rvt_client_id',cid);startPKCE(cid);
   };
   const bd=document.getElementById('bd');if(bd)bd.onclick=demo;
-  const thresh=document.getElementById('thresh');
-  if(thresh)thresh.onchange=()=>{S.threshold=parseInt(thresh.value);localStorage.setItem('rvt_thresh',S.threshold);};
+  const b2l=document.getElementById('b2l');
+  if(b2l)b2l.onclick=async()=>{
+    const cid=(document.getElementById('cid')?.value||'').trim();
+    const csec=(document.getElementById('csecret')?.value||'').trim();
+    if(!cid){S.error='Please enter your Client ID first.';render();return;}
+    if(!csec){S.error='Please enter your Client Secret.';render();return;}
+    b2l.disabled=true;b2l.textContent='Connecting…';
+    try{
+      await connectTwoLegged(cid,csec);
+      // Clear secret from DOM immediately after use
+      const el=document.getElementById('csecret');if(el)el.value='';
+      await loadHubs();
+    }catch(e){
+      S.error='2-legged auth failed: '+e.message;render();
+    }finally{if(b2l){b2l.disabled=false;b2l.textContent='Connect with Client Secret';}}
+  };
   const bso=document.getElementById('b-signout');
   if(bso)bso.onclick=()=>{
-    localStorage.removeItem('rvt_tok');
-    localStorage.removeItem('rvt_uname');
-    S.token='';S.uname='';S.hub=null;S.projects=[];S.phase='setup';
-    render();
+    localStorage.removeItem('rvt_tok');localStorage.removeItem('rvt_uname');
+    sessionStorage.removeItem('rvt_2l_tok');
+    S.token='';S.uname='';S.authMode='3-legged';S.clientSecret='';S.tokenExpired=false;S.refreshToken=null;S.tokenIssuedAt=null;
+    S.hub=null;S.projects=[];S.phase='setup';S.error=null;render();
+  };
+  // Close filter dropdown on any outside click
+  // Inner elements call event.stopPropagation() so this only fires for outside clicks
+  document.onclick=()=>{
+    if(S.filterOpen){S.filterOpen=false;render();}
   };
 }
 
-window.navTo    = k => { S.phase=k==='scan'?(S.hub?'dash':'setup'):k; S.error=null; render(); };
-window.sortBy   = col => { S.sortCol===col?S.sortDir*=-1:(S.sortCol=col,S.sortDir=1); render(); };
-window.toggleX  = id => { S.expanded.has(id)?S.expanded.delete(id):S.expanded.add(id); render(); };
-window.scanHub  = scanHub;
-window.setThresh= v => { S.threshold=v; localStorage.setItem('rvt_thresh',v); render(); };
-
-window.exportCsv = () => {
-  const gl=hubLatest();
-  const rows=[['Project','C4R Version','C4R Files','At Risk (C4R ≤'+S.threshold+')','Cloud Files','Status','Last Modified','ACC URL']];
-  S.projects.forEach(p=>rows.push([p.name,p.c4rVersion||'',p.c4rCount,p.atRisk,p.cloudCount,pStatus(p),fDate(p.lastMod),p.accUrl||'']));
-  rows.push([],[' --- C4R File Detail ---'],['Project','File','Version','At Risk','Path','Modified','By']);
-  S.projects.forEach(p=>(p.c4rFiles||[]).forEach(f=>rows.push([p.name,f.name,f.version||'',isAtRisk(f.version)?'YES':'no',f.path||'',f.modTime||'',f.modBy||''])));
-  rows.push([],[' --- Cloud Storage Files (not counted toward risk) ---'],['Project','File','Version','Path','Modified','By']);
-  S.projects.forEach(p=>(p.cloudFiles||[]).forEach(f=>rows.push([p.name,f.name,f.version||'',f.path||'',f.modTime||'',f.modBy||''])));
-  const csv=rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
-  const a=document.createElement('a');
-  a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
-  a.download='revit-hub-scan-'+new Date().toISOString().slice(0,10)+'.csv';
-  a.click();
-};
-
-window.exportPdf = () => {
-  const rows = [...S.projects];
-  const filtered = rows.filter(p => {
-    if (S.search && !p.name.toLowerCase().includes(S.search.toLowerCase())) return false;
-    const activeStatuses = Array.isArray(S.statusFilter) ? S.statusFilter : [S.statusFilter];
-    if (!activeStatuses.includes('all') && !activeStatuses.includes(pStatus(p))) return false;
-    return true;
-  });
-  const printedOn = new Date().toLocaleString();
-  const html = `
-  <html><head><title>Revit Hub Scan Report</title>
-  <style>
-    body{font-family:Arial,sans-serif;padding:24px;color:#111} h1{margin:0 0 8px} .meta{color:#555;margin-bottom:16px}
-    table{width:100%;border-collapse:collapse;font-size:12px} th,td{border:1px solid #ccc;padding:6px;text-align:left}
-    th{background:#f3f3f3} .section{margin-top:22px}
-  </style></head><body>
-    <h1>Revit Version Checker Report</h1>
-    <div class="meta">Generated: ${esc(printedOn)} | Threshold: ${S.threshold} | Filter: ${(Array.isArray(S.statusFilter)?S.statusFilter:[S.statusFilter]).join(', ')}</div>
-    <table><thead><tr><th>Project</th><th>C4R Version</th><th>C4R Files</th><th>At Risk</th><th>Cloud Files</th><th>Status</th><th>Last Modified</th></tr></thead>
-    <tbody>
-      ${filtered.map(p=>`<tr><td>${esc(p.name)}</td><td>${esc(p.c4rVersion||'—')}</td><td>${p.c4rCount||0}</td><td>${p.atRisk||0}</td><td>${p.cloudCount||0}</td><td>${esc(pStatus(p))}</td><td>${fDate(p.lastMod)}</td></tr>`).join('')}
-    </tbody></table>
-    <div class="section"><h3>Critical project details</h3>
-      ${filtered.filter(p=>pStatus(p)==='critical').map(p=>`<p><strong>${esc(p.name)}</strong>: ${p.atRisk||0} at-risk RCW model(s)</p>`).join('') || '<p>None</p>'}
-    </div>
-  </body></html>`;
-  const w = window.open('', '_blank');
-  if(!w) return alert('Pop-up blocked. Please allow pop-ups to export PDF.');
-  w.document.write(html);
-  w.document.close();
-  w.focus();
-  w.print();
-};
-
-// ─── OAUTH CALLBACK HANDLER ───────────────────────────────────────────────────
-(async function initAuth() {
-  const params = new URLSearchParams(window.location.search);
-  const code   = params.get('code');
-  const error  = params.get('error');
-
-  if (error) {
-    S.error = 'Sign-in was cancelled or failed: ' + (params.get('error_description') || error);
-    window.history.replaceState({}, '', window.location.pathname);
-    render();
+// ─── BOOT ─────────────────────────────────────────────────────────────────────
+(async()=>{
+  const params=new URLSearchParams(window.location.search);
+  const code=params.get('code');
+  if(code){
+    history.replaceState(null,'',window.location.pathname);
+    try{
+      const{token,clientId,refreshToken}=await handleCallback(code);
+      S.token=token;S.clientId=clientId;
+      localStorage.setItem('rvt_tok',token);localStorage.setItem('rvt_client_id',clientId);
+      S.refreshToken=refreshToken||null;
+      S.tokenIssuedAt=Date.now();
+      const profile=await fetchUserProfile(token);
+      S.uname=profile.name;S.userId=profile.userId;
+      localStorage.setItem('rvt_uname',S.uname);
+      localStorage.setItem('rvt_userid',S.userId);
+      await loadHubs();
+    }catch(e){S.error='Sign-in failed: '+e.message;render();}
     return;
   }
-
-  if (code) {
-    window.history.replaceState({}, '', window.location.pathname);
-    S.phase = 'setup';
-    const mc = document.getElementById('mc');
-    if (mc) mc.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:40px 0;color:var(--muted);font-size:13px"><span class="spinner"></span> Completing sign-in…</div>`;
-    try {
-      const { token, clientId } = await handleCallback(code);
-      const name  = await fetchUserName(token);
-      S.token    = token;
-      S.clientId = clientId;
-      S.uname    = name || 'Autodesk User';
-      localStorage.setItem('rvt_tok',       token);
-      localStorage.setItem('rvt_client_id', clientId);
-      localStorage.setItem('rvt_uname',     S.uname);
-      render();
-      loadHubs();
-    } catch(e) {
-      S.error = 'Sign-in failed: ' + e.message;
-      render();
-    }
-    return;
-  }
-
-  if (S.token && S.token !== 'demo') {
-    render();
-    loadHubs();
-    return;
-  }
-
+  if(S.token&&S.token!=='demo'){render();await loadHubs();return;}
   render();
-})();
-
-// ─── GLOBAL TOOLTIP ──────────────────────────────────────────────────────────
-// Single fixed-position tooltip div that follows the mouse.
-// Triggered by any element with a data-tip attribute.
-// Escapes all z-index / overflow clipping issues.
-(function(){
-  const tip = document.createElement('div');
-  tip.id = 'gtip';
-  tip.style.cssText = 'position:fixed;z-index:99999;background:#1a1a1a;color:#f0f0f0;font-size:11px;font-family:inherit;padding:4px 9px;border-radius:5px;border:0.5px solid rgba(255,255,255,0.13);pointer-events:none;opacity:0;transition:opacity 0.1s;white-space:nowrap;max-width:260px;line-height:1.4';
-  document.body.appendChild(tip);
-
-  let current = null;
-
-  document.addEventListener('mouseover', e => {
-    const el = e.target.closest('[data-tip]');
-    if (!el) return;
-    current = el;
-    tip.textContent = el.getAttribute('data-tip');
-    tip.style.opacity = '1';
-    position(e);
-  });
-
-  document.addEventListener('mousemove', e => {
-    if (!current) return;
-    position(e);
-  });
-
-  document.addEventListener('mouseout', e => {
-    const el = e.target.closest('[data-tip]');
-    if (!el) return;
-    current = null;
-    tip.style.opacity = '0';
-  });
-
-  function position(e) {
-    const pad = 12;
-    let x = e.clientX + pad;
-    let y = e.clientY - 30;
-    const w = tip.offsetWidth;
-    const h = tip.offsetHeight;
-    if (x + w > window.innerWidth - pad) x = e.clientX - w - pad;
-    if (y < pad) y = e.clientY + pad;
-    tip.style.left = x + 'px';
-    tip.style.top  = y + 'px';
-  }
 })();
 </script>
 </body>

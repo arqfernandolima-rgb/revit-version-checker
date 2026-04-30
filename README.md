@@ -1,190 +1,276 @@
 # Revit Version Checker
 
-A free, zero-backend hub-level dashboard for scanning Revit model versions across all projects in an Autodesk Forma / ACC hub at once.
+[![Version](https://img.shields.io/badge/version-1.0.0-blue)](https://github.com/tsb2127/revit-version-checker/releases/tag/v1.0.0)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-![Screenshot](screenshot.png)
+**Scan every project in an Autodesk Forma / ACC hub for Revit cloud worksharing deprecation risk — no server required.**
+
+A single-file HTML app that runs entirely in the browser. Authenticate with Autodesk Platform Services (APS), walk every folder in every project, classify Revit files by worksharing type and version, and export colour-coded PDF and CSV reports.
+
+> ⚠ **Not an official Autodesk product.** Read-only access only. Use at your own discretion.
 
 ---
 
 ## Why this exists
 
-Version visibility has been one of the most common requests from ACC customers for years — and the product team still hasn't shipped it natively. With Autodesk announcing deprecation of cloud worksharing access for older Revit versions ([FY27 Q3/Q4 announcement](https://forums.autodesk.com/t5/revit-cloud-worksharing-forum/important-update-deprecation-of-revit-cloud-models-access-for/td-p/14093972)), teams need to know exactly where they stand across all projects at once — not one folder at a time.
+Autodesk is deprecating cloud worksharing access for Revit versions older than **current minus five** starting **FY27 Q3/Q4**. Projects still on Revit 2021 or earlier (Cloud Workshared models only) will lose the ability to sync after that deadline.
 
----
+Finding affected projects manually — hub by hub, project by project — is impractical at scale. This tool uses the **ACC Admin API** to enumerate every active project regardless of your personal project membership, then recursively scans folder trees to find `.rvt` files and classify them by worksharing type and version.
 
-## RCW vs RC — the key distinction
-
-Not all `.rvt` files in ACC are the same. The app separates two types:
-
-| Type | Label | What it means | Deprecation risk |
-|------|-------|---------------|-----------------|
-| Revit Cloud Workshared | `RCW` | Cloud Worksharing is enabled. The entire team is locked to one Revit version — nobody can open the file in a different version. | **Yes** — affected by Autodesk's deprecation deadline |
-| Revit Cloud Model | `RC` | A Revit file uploaded to ACC without worksharing. No version lock — anyone can open it in any version. | **No** — excluded from risk calculations entirely |
-
-Only `RCW` models are counted toward deprecation risk. `RC` files appear in the expanded project view as informational only.
-
-Detection is done via `attributes.extension.type` — if it contains `C4RModel`, the file is Revit Cloud Workshared.
+**Official Autodesk announcement:** [forums.autodesk.com](https://forums.autodesk.com/t5/revit-cloud-worksharing-forum/important-update-deprecation-of-revit-cloud-models-access-for/td-p/14093972)
 
 ---
 
 ## Features
 
-- **Hub-level scan** — scans every project in your hub in one go, no project-by-project navigation
-- **RCW / RC separation** — correctly distinguishes workshared models from plain cloud uploads; only RCW files count toward risk
-- **Deprecation banner** — automatically flags projects with files on Revit 2021 or older (configurable threshold)
-- **Configurable threshold** — set your own cutoff year (2019–2022) to get ahead of the deadline
-- **Per-project expand** — click any project row to see every RCW and RC file with version, path, and last modified
-- **Version colour badges** — green (latest in hub) → blue (1 behind) → amber (2 behind) → red (3+ behind)
-- **Sortable table** — sort by version, files, risk count, or last modified
-- **Search + status filter** — find projects by name or filter to Critical / Outdated / Current
-- **Direct ACC links** — each project row links straight to that project in ACC
-- **CSV export** — exports project summary and full file detail, with at-risk flag per file
-- **One-click sign-in** — PKCE OAuth via Autodesk's official login page, no tokens to copy
-- **Saved Client ID** — stored in your browser so you only enter it once
-- **Demo mode** — try the full UI without an Autodesk account
-
----
-
-## How it works
-
-Connects to your ACC hub and scans every project simultaneously. For each `.rvt` file found it calls:
-
-```
-GET /data/v1/projects/{projectId}/items/{itemId}/versions
-```
-
-And checks two things on the latest version:
-
-1. `attributes.extension.type` — determines whether the file is RCW (contains `C4RModel`) or RC (anything else)
-2. `attributes.extension.data.revitProjectVersion` — the Revit year, e.g. `2025`
-
-The version is only shown and counted for RCW files. RC files are surfaced separately with no version lock implied.
-
-### API endpoints used
-
-| Endpoint | Purpose |
-|----------|---------|
-| `GET /project/v1/hubs` | List ACC hubs |
-| `GET /project/v1/hubs/{hubId}/projects` | List all projects in hub |
-| `GET /project/v1/hubs/{hubId}/projects/{projectId}/topFolders` | Get root folders |
-| `GET /data/v1/projects/{projectId}/folders/{folderId}/contents` | Recurse folder tree |
-| `GET /data/v1/projects/{projectId}/items/{itemId}/versions` | Read version + type metadata |
-
-All calls use a 3-legged token. No server-side component is needed — every API call is made directly from the browser.
-
----
-
-## Getting started
-
-Each user connects using their own APS app credentials. This means the app works for any ACC hub without a central whitelist — you control your own access.
-
-### What you need
-
-1. **An APS app** — create one at [aps.autodesk.com](https://aps.autodesk.com) (free). Select **Desktop, Mobile, Single-Page App** as the type — not Traditional Web App
-2. **Your GitHub Pages URL set as the Callback URL** in the app settings
-3. **Your app added as a Custom Integration** in ACC Account Admin
-
-Full step-by-step instructions are built into the app's connect screen.
-
-### Use the hosted version
-
-[**tsb2127.github.io/revit-version-checker**](https://tsb2127.github.io/revit-version-checker)
-
-1. Follow the 3-step setup guide on the connect screen
-2. Paste your APS Client ID (saved in your browser after first use)
-3. Click **Sign in with Autodesk** — logs in via Autodesk's official login page
-4. Hub scan starts automatically
-
-### Run locally
-
-```bash
-git clone https://github.com/tsb2127/revit-version-checker.git
-cd revit-version-checker
-open index.html        # Mac
-start index.html       # Windows
-```
-
-The callback URL shown in the setup guide will update automatically to match wherever you're running the app.
-
----
-
-## How sign-in works (PKCE OAuth)
-
-The app uses the **PKCE (Proof Key for Code Exchange)** OAuth 2.0 flow — the industry standard for browser-based apps with no backend server. There is no hardcoded client ID in the code. Each user brings their own APS app, which means:
-
-- No central whitelist required — your APS app only needs to be added to your own hub
-- You control exactly which hubs can be accessed by your app
-- If you stop using the app, simply remove the Custom Integration from ACC
-
-**The flow step by step:**
-
-1. You enter your Client ID and click Sign in
-2. The app generates a random one-time `code_verifier` stored only in your browser's `sessionStorage`
-3. Your browser redirects to Autodesk's official login page
-4. You log in and approve `data:read` access
-5. Autodesk redirects back with a short-lived `code` in the URL
-6. The app exchanges that code + `code_verifier` for an access token — no client secret needed
-7. Token is stored in `localStorage`, expires after 1 hour
-
-Your Client ID is saved in your browser so you only enter it once.
-
----
-
-## ⚠️ Use at your own risk
-
-**This is not an official Autodesk product.** It is an open-source tool built by an individual Autodesk employee in a personal capacity. Please read this before using it or sharing it with customers:
-
-- This app has **not** undergone a security audit, penetration test, or Autodesk's internal application review process
-- The token scope is `data:read` only — the app **cannot** write, modify, delete, or change anything in your ACC hub
-- No data is sent to any third-party server — all API calls go directly from your browser to Autodesk's servers
-- Your token is stored in your browser's `localStorage` and never transmitted anywhere except Autodesk's own API endpoints
-- The full source code is publicly available at this repository — your IT or security team can review exactly what the app does before use
-- Tokens expire after 1 hour and must be refreshed by signing in again
-- By using this app you accept that it is provided as-is with no warranty, support, or liability implied by Autodesk
-
-If your organisation has strict policies about third-party OAuth applications accessing ACC data, check with your IT or security team before use.
-
----
-
-## Version colour key
-
-| Badge colour | Meaning |
+| Feature | Detail |
 |---|---|
-| Green | Latest RCW version found across the hub |
-| Blue | One version behind the hub latest |
-| Amber | Two versions behind |
-| Red | Three or more versions behind |
-| Red (outlined) | At or below deprecation threshold — action required |
+| Full hub coverage | ACC Admin API lists all active projects regardless of personal membership |
+| Two auth modes | 3-legged PKCE OAuth (standard) or 2-legged Client Secret (full hub access, session only) |
+| RCW vs RC | Separates Cloud Workshared (version-locked, at risk) from plain cloud uploads (not affected) |
+| Project groups | Hub split into groups of 200; groups scan sequentially; results appear progressively |
+| Parallel scanning | 3–4 projects in parallel within each group; 5 version fetches per project |
+| Proactive rate limiting | Token-bucket tracks calls/min; inserts precise waits before hitting APS limits |
+| Token auto-refresh | Silently refreshes between groups — scans survive past the 1-hour token expiry |
+| Per-request timeout | 30s AbortController on every fetch; hung connections abort and retry rather than stalling |
+| Threshold picker | Choose 2021 or 2022 as the critical cutoff; all tiers adjust instantly without re-scanning |
+| Multi-status filter | Combine any statuses (e.g. Critical + Outdated) for targeted exports |
+| Accuracy statement | PDF includes file-level accuracy % and caveats for inaccessible folders/projects |
+| PDF report | Landscape A4, colour-coded rows and status badges, clickable ACC links, per-group or hub-wide |
+| CSV export | Project summary + per-file RCW detail, filter-aware, per-group or hub-wide |
+| Demo mode | Nine sample projects covering every status tier — no login required |
 
 ---
 
-## Limitations
+## Deprecation tiers
 
-- `revitProjectVersion` is only populated for **Revit Cloud Workshared** models. RC (non-workshared) uploads do not have a version lock and are not counted toward risk.
-- Large hubs with hundreds of projects and thousands of files will make many API calls and may take several minutes to scan. The APS Data Management API is free with no per-call cost.
-- Each user needs their own APS app (free to create) registered as a **Desktop, Mobile, Single-Page App** type, with the app added as a Custom Integration in their ACC hub. The connect screen walks through this in 3 steps.
-- Tokens expire after 1 hour — sign in again when prompted.
-- The app requires the APS app to be of type **Single-Page App** (not Traditional Web App) to support PKCE. Traditional Web App types will fail authentication.
+With the default threshold set to **2021**:
 
----
+| Status | Revit version | Meaning |
+|--------|--------------|---------|
+| 🟢 **Current** | ≥ 2024 (threshold + 3) | No action needed |
+| 🟡 **Outdated** | 2022–2023 (threshold + 1 or + 2) | Plan an upgrade cycle |
+| 🔴 **Critical** | ≤ 2021 (at or below threshold) | Upgrade before FY27 Q3/Q4 |
+| 🟣 **Mixed** | Multiple C4R versions in same project | Expand row to inspect files individually |
+| ⚫ **No RCW** | No Cloud Workshared files found | Not affected |
+| 🔘 **No Access** | Project visible but files inaccessible | See [Troubleshooting](#troubleshooting) |
 
-## Roadmap
+Set threshold to **2022** to shift all bands: Critical ≤ 2022, Outdated 2023–2024, Current ≥ 2025.
 
-- [x] ~~Built-in OAuth login (PKCE)~~ — shipped
-- [ ] Upgrade deadline countdown — days remaining per project based on Autodesk's FY27 timeline
-- [ ] Required version enforcement — set a hub standard and surface any project that deviates
-- [ ] Scan history — persist results so you can compare hub health week over week
-
-Contributions welcome — open an issue or PR.
+Only **RCW (Revit Cloud Workshared)** models count toward risk. Plain cloud uploads (RC) are shown separately and excluded from all calculations.
 
 ---
 
-## Built by
+## Authentication — choosing the right mode
 
-Tanmay Bhalerao — Senior Account Technical Lead at Autodesk, working with AEC teams across the US and India. Built this because customers kept asking for it and it didn't exist. Not a software engineer by background — proof that the APS APIs are approachable for anyone willing to experiment.
+This is the most important decision before using the tool. The two modes have meaningfully different access levels and security profiles.
+
+### Mode 1 — Sign in with Autodesk (3-legged PKCE)
+
+Standard OAuth 2.0 Authorization Code flow with PKCE. You are redirected to Autodesk's login page, authenticate there, and the app receives a time-limited access token. No password or secret ever touches this app.
+
+**APS app type:** Desktop, Mobile, Single-Page App
+
+**Access:**
+- All projects listed by the Admin API (requires Account Admin role)
+- File contents **only for projects you are a member of** — the Admin API lists all projects, but the Data Management API enforces project-level membership for folder and file access
+
+**Token lifetime:** 1 hour. Auto-refreshed between groups using a refresh token (granted via `offline_access` scope since v1.0.0).
+
+**Security profile:** Low risk. Token is short-lived. No secret stored anywhere. Autodesk's own login page handles credentials. Suitable for shared or team environments.
+
+**Best for:** Hubs where you are a member of most projects, or where complete hub coverage is less important than a standard sign-in experience.
+
+---
+
+### Mode 2 — Client Secret (2-legged)
+
+Machine-to-machine `client_credentials` grant. The app exchanges your Client ID + Client Secret directly for an application token. No login page. The token represents the APS application, not a user — it bypasses per-project membership restrictions entirely.
+
+**APS app type:** Traditional Web App or Service App (M2M)
+
+**Access:**
+- All projects in the hub regardless of personal membership
+- File contents in all projects — no membership check
+
+**Token lifetime:** 1 hour. Auto-refreshed between groups by calling `client_credentials` again with the stored credentials — fully silent, no user interaction required.
+
+**Security profile:**
+
+> ⚠ **The Client Secret grants application-level read access to your entire ACC hub. Treat it like a password.**
+
+- The secret is held **in browser memory only** (the `S.clientSecret` JavaScript variable) and is never written to `localStorage`, `sessionStorage`, the DOM, server logs, or the network after the initial token exchange
+- The secret is **cleared when the tab closes** and does not survive a page refresh
+- The session token is stored in `sessionStorage` (tab-scoped) and clears on tab close
+- While the session is active, the secret is readable in browser memory by anyone with DevTools access on that machine
+- **Never use this mode on a shared, public, or screen-shared computer**
+- **Never use this mode if your APS app has write scopes** — this tool only requests `data:read account:read`, but verify your app's scope configuration before connecting
+- If your Client Secret is compromised, rotate it immediately in the APS developer portal
+
+**Best for:** Account Admins scanning large hubs with many older BIM 360 projects where 3-legged mode leaves significant numbers of projects as "No Access". The productivity gain is real, but the security tradeoff must be understood.
+
+---
+
+## Setup
+
+### Step 1 — Create an APS application
+
+Go to [aps.autodesk.com](https://aps.autodesk.com) → **My Apps** → **Create App**. Choose the type based on your auth mode:
+
+**3-legged (Sign in with Autodesk):**
+- App type: **Desktop, Mobile, Single-Page App**
+- No Client Secret is generated — that is expected and correct
+- Set **Callback URL** to your exact deployment URL (no trailing slash):
+  ```
+  https://yourusername.github.io/revit-version-checker
+  ```
+
+**2-legged (Client Secret):**
+- App type: **Traditional Web App** or **Service App (M2M)**
+- Copy your Client Secret — it is only shown once
+- Callback URL is not required for 2-legged
+
+Enable API products for both: **Data Management**, **ACC Account Administrator**
+
+### Step 2 — Register as a Custom Integration in ACC
+
+1. ACC → **Account Admin → Custom Integrations → Add custom integration**
+2. Paste your Client ID and complete the flow
+3. The user performing this step must have **Account Admin** role
+
+### Step 3 — Deploy to GitHub Pages
+
+1. Fork or clone this repo
+2. File must be `index.html` at the repo root
+3. **Settings → Pages** → source: `main` branch, root folder
+4. App live at `https://<username>.github.io/<repo-name>/`
+5. GitHub Pages URL must exactly match the Callback URL (3-legged only)
+
+### Step 4 — Connect and scan
+
+**3-legged:**
+1. Paste Client ID → **Sign in with Autodesk**
+2. Autodesk login page → authenticate with an Account Admin account
+3. Select hub → scanning begins
+
+**2-legged:**
+1. Paste Client ID into the Client ID field
+2. Paste Client Secret into the password field
+3. Click **Connect with Client Secret** → immediate, no login page
+4. Select hub → scanning begins
+
+---
+
+## How the scan works
+
+Projects are split into **groups of 200** and scanned sequentially. Within each group, 3–4 projects run in parallel. Results appear group by group, so you can export Group 1 while Group 2 is scanning.
+
+```
+scanHub()
+ ├─ getAllAdminProjects()        ACC Admin API — all active projects, paginated
+ ├─ getMemberProjectIds()        DM API — pre-marks non-member projects (3-legged only)
+ └─ For each group (sequential)
+     ├─ refreshSessionIfNeeded() Proactive token refresh if >50 min old
+     └─ pool(projects, 3–4)      Parallel within group
+         └─ scanProject()
+             ├─ Pass 1: BFS folder walk, zero version calls
+             │    topFolders → queue → apiAll() per folder (handles pagination)
+             └─ Pass 2: version fetches, pool(items, 5)
+                  /items/{id}/versions → extension.type → RCW or RC
+                                       → revitProjectVersion → year
+```
+
+### RCW classification
+
+Classification uses the **version-level** `extension.type` — never the item-level type. Older BIM 360 files often carry `items:autodesk.bim360:File` at item level even when Cloud Workshared, making item-level classification unreliable.
+
+```
+versions:autodesk.bim360:C4RModel   BIM 360 era — most common for affected files
+versions:autodesk.a360:C4RModel     Early A360 era
+versions:autodesk.core:C4RModel     ACC native
+```
+
+### Scan accuracy
+
+```
+accuracy % = classified / (classified + failed)
+```
+
+Failed files (version call failed after retries) appear in each project's expanded row and in the PDF accuracy box. Inaccessible folders (403) and no-access projects are flagged separately — their contents are genuinely unknown and excluded from both numerator and denominator.
+
+---
+
+## Exports
+
+### PDF report
+
+- Client-side generation via jsPDF + jsPDF-AutoTable — no server
+- Two-tone navy/blue header, colour-coded row backgrounds, status badge pills
+- Scan accuracy statement with file counts and caveats
+- Clickable "Open ACC" buttons link to each project in ACC
+- Per-group export (group header button) or whole-hub export (toolbar)
+- File-level detail pages for critical projects
+
+### CSV export
+
+| Row type | Columns |
+|---|---|
+| Project summary | Project, RCW Version, RCW Files, At Risk Files, RC Files, Status, Last Modified |
+| Per-file detail | Project, Type, File, Version, Risk, Path, Last Modified, Modified By |
+
+Both exports respect the active search, status filter, and sort order.
+
+---
+
+## Troubleshooting
+
+**Fewer projects than expected / many "No Access"**
+Use 2-legged Client Secret mode for complete hub coverage. In 3-legged mode, file access is limited to projects you are personally a member of.
+
+**Sign-in callback error**
+The Callback URL in your APS app does not exactly match the page URL. Check trailing slashes, `http` vs `https`. The expected URL is printed on the setup screen.
+
+**Groups 3+ all show "No RCW"**
+Token expired mid-scan. Upgrade to v1.0.0 — the auto-refresh mechanism silently renews the token between groups.
+
+**2-legged: secret not accepted / 401 error**
+Check that your APS app type is **Traditional Web App** or **Service App (M2M)** — Single-Page App type does not generate a Client Secret. Also verify the app is registered as a Custom Integration in ACC.
+
+**Many "timed out after 5 minutes"**
+Projects with very deep folder structures or slow API responses. The 30s per-request timeout prevents any single hung call from consuming the full project budget. Check the expanded row for `skippedFolders` and `failedFiles` counts.
+
+**PDF link buttons don't open**
+Use Adobe Acrobat or macOS Preview. Some browser-based PDF viewers strip link annotations.
+
+**Client Secret clears on page refresh**
+By design — the secret lives in browser memory only. Re-enter credentials after each browser session. The session token (without the secret) survives in `sessionStorage` for up to 1 hour, so you can refresh the page and continue viewing results without re-scanning.
+
+---
+
+## Project structure
+
+```
+/
+├── index.html       Single-file app — all HTML, CSS, and JS
+├── README.md
+├── ARCHITECTURE.md  Technical internals for contributors
+├── CONTRIBUTING.md
+├── CHANGELOG.md
+└── LICENSE
+```
+
+No build step, no `node_modules`, no bundler. Open `index.html` directly for local testing — register `http://localhost` as a Callback URL in your APS app.
+
+---
+
+## Credits
+
+Original tool by **Tanmay Bhalerao** — Senior Account Technical Lead, Autodesk.
+
+Community enhancements: ACC Admin API, 2-legged auth, project groups, rate limiting, token auto-refresh, parallel scanning, PDF redesign, accuracy tracking, resilience improvements.
 
 ---
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE) for details.
