@@ -231,9 +231,9 @@ tr.risk-row:hover{background:rgba(220,38,38,0.05)}
 </div>
 <script>
 // ─── VERSION ──────────────────────────────────────────────────────────────────
-const VERSION='1.2.5';
+const VERSION='1.2.6';
 const RELEASE_DATE='2026-05-01';
-const CHANGELOG_URL='https://github.com/tsb2127/revit-version-checker/releases/tag/v1.2.5';
+const CHANGELOG_URL='https://github.com/tsb2127/revit-version-checker/releases/tag/v1.2.6';
 
 const APS='https://developer.api.autodesk.com';
 const OAUTH={
@@ -869,13 +869,11 @@ async function scanProject(proj,hub){
   //   reliable for this hub. Before that threshold, all items get version calls.
   //   This prevents false negatives on hubs where item types may not be trustworthy.
 
-  const SKIP_THRESHOLD=1; // after 1 confirmed C4R file, trust item-level type for RC classification
-  let confirmedC4RCount=0;
-
-  // Items whose item-level type clearly indicates non-C4R (safe to skip)
-  const isDefinitelyRC=itemType=>itemType==='items:autodesk.bim360:file'
-    ||itemType==='items:autodesk.bim360:document'
-    ||itemType==='items:autodesk.bim360:transmittal';
+  // NOTE: item-level type is NOT used to skip version calls.
+  // Older BIM 360 C4R models carry items:autodesk.bim360:File at item level even
+  // when Cloud Workshared — using item type as an exclusion filter causes false
+  // negatives for exactly the files this tool exists to find.
+  // Every .rvt item gets a version call; version response is authoritative.
 
   await pool(allRvtItems.map(({item,path:pathLabel})=>async()=>{
     if(S.aborted)return;
@@ -885,17 +883,6 @@ async function scanProject(proj,hub){
     if(isSystemName(name)){
       proj.systemFiles.push({id:item.id,name,path:pathLabel,
         modTime:item.attributes?.lastModifiedTime||null});
-      return;
-    }
-
-    const rawItemType=(item.attributes?.extension?.type||'').toLowerCase();
-
-    // Conservative item-level skip — only once enough C4R files are confirmed
-    if(confirmedC4RCount>=SKIP_THRESHOLD&&isDefinitelyRC(rawItemType)){
-      proj.cloudFiles.push({
-        id:item.id,name,path:pathLabel,version:null,isC4R:false,
-        modTime:item.attributes?.lastModifiedTime||null,modBy:null
-      });
       return;
     }
 
@@ -941,7 +928,6 @@ async function scanProject(proj,hub){
       return;
     }
 
-    if(isC4R)confirmedC4RCount++;
     const modelGuid=latest?.attributes?.extension?.data?.modelGuid||null;
     const f={id:item.id,name,path:pathLabel,version,isC4R,modTime,modBy,inferredVersion,modelGuid};
     if(isC4R)proj.c4rFiles.push(f);else proj.cloudFiles.push(f);
