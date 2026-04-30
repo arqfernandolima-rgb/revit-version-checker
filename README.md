@@ -1,6 +1,6 @@
 # Revit Version Checker
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue)](https://github.com/tsb2127/revit-version-checker/releases/tag/v1.0.0)
+[![Version](https://img.shields.io/badge/version-1.2.1-blue)](https://github.com/tsb2127/revit-version-checker/releases/tag/v1.2.1)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 **Scan every project in an Autodesk Forma / ACC hub for Revit cloud worksharing deprecation risk — no server required.**
@@ -27,18 +27,24 @@ Finding affected projects manually — hub by hub, project by project — is imp
 |---|---|
 | Full hub coverage | ACC Admin API lists all active projects regardless of personal membership |
 | Two auth modes | 3-legged PKCE OAuth (standard) or 2-legged Client Secret (full hub access, session only) |
-| RCW vs RC | Separates Cloud Workshared (version-locked, at risk) from plain cloud uploads (not affected) |
-| Project groups | Hub split into groups of 200; groups scan sequentially; results appear progressively |
-| Parallel scanning | 3–4 projects in parallel within each group; 5 version fetches per project |
+| RCW vs RC | Correctly separates Cloud Workshared (version-locked, at risk) from plain cloud uploads (not affected) |
+| Smart folder skipping | 35+ known non-RVT folder names skipped at any depth (Plans, Photos, Archive, Specs, etc.) — no API calls wasted |
+| Depth limit | BFS capped at depth 4 — matches deepest real-world ACC layout; eliminates timeout on deep/demo projects |
+| Priority-first scan | Project Files and discipline folders scan before archive/admin folders — results appear fast |
+| Parallel folder fetches | 3 folder content calls per project in parallel — 2–3× faster folder walk |
+| Inline version data | `?include=version` on folder calls returns version data in the same response — eliminates separate version calls for many files |
+| Project groups | Hub split into groups of 100; groups scan sequentially; results appear progressively; exportable per group |
+| Parallel scanning | 3–4 projects in parallel within each group; 8 version fetches per project |
 | Proactive rate limiting | Token-bucket tracks calls/min; inserts precise waits before hitting APS limits |
 | Token auto-refresh | Silently refreshes between groups — scans survive past the 1-hour token expiry |
 | Per-request timeout | 30s AbortController on every fetch; hung connections abort and retry rather than stalling |
+| Version inference | When `revitProjectVersion` is absent (pre-2023 schema), year is inferred from file date and flagged as estimated |
 | Threshold picker | Choose 2021 or 2022 as the critical cutoff; all tiers adjust instantly without re-scanning |
 | Multi-status filter | Combine any statuses (e.g. Critical + Outdated) for targeted exports |
 | Accuracy statement | PDF includes file-level accuracy % and caveats for inaccessible folders/projects |
 | PDF report | Landscape A4, colour-coded rows and status badges, clickable ACC links, per-group or hub-wide |
 | CSV export | Project summary + per-file RCW detail, filter-aware, per-group or hub-wide |
-| Demo mode | Nine sample projects covering every status tier — no login required |
+| Demo mode | Sample projects covering every status tier — no login required |
 
 ---
 
@@ -52,12 +58,28 @@ With the default threshold set to **2021**:
 | 🟡 **Outdated** | 2022–2023 (threshold + 1 or + 2) | Plan an upgrade cycle |
 | 🔴 **Critical** | ≤ 2021 (at or below threshold) | Upgrade before FY27 Q3/Q4 |
 | 🟣 **Mixed** | Multiple C4R versions in same project | Expand row to inspect files individually |
-| ⚫ **No RCW** | No Cloud Workshared files found | Not affected |
+| ⚫ **No RCW** | No Cloud Workshared files found | Not affected by the deprecation |
+| 🟠 **No Version** | RCW confirmed, year not in API | Pre-2023 schema — inferred from file date if possible, otherwise verify manually |
 | 🔘 **No Access** | Project visible but files inaccessible | See [Troubleshooting](#troubleshooting) |
 
 Set threshold to **2022** to shift all bands: Critical ≤ 2022, Outdated 2023–2024, Current ≥ 2025.
 
-Only **RCW (Revit Cloud Workshared)** models count toward risk. Plain cloud uploads (RC) are shown separately and excluded from all calculations.
+Only **RCW (Revit Cloud Workshared)** models count toward risk. Plain cloud uploads (RC) are displayed separately and excluded from all risk calculations.
+
+### Version inference for pre-2023 files
+
+The `revitProjectVersion` field was added to the APS API response in the C4R extension schema v1.3.x (circa 2023). Files on schema v1.1.x or v1.2.x — which includes most BIM 360 files created before 2023 — do not include this field.
+
+When the field is absent, the tool infers the version from the file's last-modified date:
+
+| Modified date | Inferred classification |
+|---|---|
+| ≤ threshold year (e.g. ≤ 2021) | **Critical** — version set to modification year |
+| threshold+1 or threshold+2 (e.g. 2022–2023) | **Outdated** — version set to modification year |
+| > threshold+2 (e.g. ≥ 2024) | **No Version** — cannot safely assume Current without proof |
+| Before 2020 (any threshold) | **Critical** — pre-modern BIM 360 era |
+
+Inferred versions are marked **(est.)** in the expanded file row and an amber banner explains the methodology. Files that cannot be inferred remain as **No Version** for manual review in ACC.
 
 ---
 
@@ -75,11 +97,11 @@ Standard OAuth 2.0 Authorization Code flow with PKCE. You are redirected to Auto
 - All projects listed by the Admin API (requires Account Admin role)
 - File contents **only for projects you are a member of** — the Admin API lists all projects, but the Data Management API enforces project-level membership for folder and file access
 
-**Token lifetime:** 1 hour. Auto-refreshed between groups using a refresh token (granted via `offline_access` scope since v1.0.0).
+**Token lifetime:** 1 hour. Auto-refreshed between groups using a refresh token (granted via `offline_access` scope).
 
 **Security profile:** Low risk. Token is short-lived. No secret stored anywhere. Autodesk's own login page handles credentials. Suitable for shared or team environments.
 
-**Best for:** Hubs where you are a member of most projects, or where complete hub coverage is less important than a standard sign-in experience.
+**Best for:** Hubs where you are a member of most projects, or where a standard sign-in experience is preferred.
 
 ---
 
@@ -101,13 +123,12 @@ Machine-to-machine `client_credentials` grant. The app exchanges your Client ID 
 
 - The secret is held **in browser memory only** (the `S.clientSecret` JavaScript variable) and is never written to `localStorage`, `sessionStorage`, the DOM, server logs, or the network after the initial token exchange
 - The secret is **cleared when the tab closes** and does not survive a page refresh
-- The session token is stored in `sessionStorage` (tab-scoped) and clears on tab close
 - While the session is active, the secret is readable in browser memory by anyone with DevTools access on that machine
 - **Never use this mode on a shared, public, or screen-shared computer**
-- **Never use this mode if your APS app has write scopes** — this tool only requests `data:read account:read`, but verify your app's scope configuration before connecting
+- **Never use this mode if your APS app has write scopes** — this tool only requests `data:read account:read`
 - If your Client Secret is compromised, rotate it immediately in the APS developer portal
 
-**Best for:** Account Admins scanning large hubs with many older BIM 360 projects where 3-legged mode leaves significant numbers of projects as "No Access". The productivity gain is real, but the security tradeoff must be understood.
+**Best for:** Account Admins scanning large hubs with many older BIM 360 projects where 3-legged mode leaves significant numbers of projects as "No Access".
 
 ---
 
@@ -154,35 +175,60 @@ Enable API products for both: **Data Management**, **ACC Account Administrator**
 3. Select hub → scanning begins
 
 **2-legged:**
-1. Paste Client ID into the Client ID field
-2. Paste Client Secret into the password field
-3. Click **Connect with Client Secret** → immediate, no login page
-4. Select hub → scanning begins
+1. Paste Client ID and Client Secret into the setup fields
+2. Click **Connect with Client Secret** → immediate, no login page
+3. Select hub → scanning begins
 
 ---
 
 ## How the scan works
 
-Projects are split into **groups of 200** and scanned sequentially. Within each group, 3–4 projects run in parallel. Results appear group by group, so you can export Group 1 while Group 2 is scanning.
+Projects are split into **groups of 100** and scanned sequentially. Within each group, 3–4 projects run in parallel. Results appear group by group so you can export Group 1 while Group 2 is scanning.
 
 ```
 scanHub()
  ├─ getAllAdminProjects()        ACC Admin API — all active projects, paginated
  ├─ getMemberProjectIds()        DM API — pre-marks non-member projects (3-legged only)
- └─ For each group (sequential)
-     ├─ refreshSessionIfNeeded() Proactive token refresh if >50 min old
-     └─ pool(projects, 3–4)      Parallel within group
+ └─ For each group of 100 (sequential)
+     ├─ refreshSessionIfNeeded() Proactive token refresh if token >50 min old
+     └─ pool(projects, 3–4)      3 parallel (3-legged) or 4 (2-legged)
          └─ scanProject()
-             ├─ Pass 1: BFS folder walk, zero version calls
-             │    topFolders → queue → apiAll() per folder (handles pagination)
-             └─ Pass 2: version fetches, pool(items, 5)
+             ├─ topFolders call  — skip known non-RVT folders immediately
+             ├─ Pass 1: Parallel BFS folder walk (3 folders at once)
+             │    Queue ordered by FOLDER_PRIORITY (Project Files → Shared → disciplines → other)
+             │    SKIP_FOLDERS applied at every depth (Archive, Old, Specs, Admin, etc.)
+             │    MAX_FOLDER_DEPTH=4 — never descends beyond discipline/phase/subphase
+             │    apiAllWithInclude() — fetches contents + inline version data (?include=version)
+             │    Items with inline version data → classified immediately, no Pass 2 call
+             │    Items without inline version data → allRvtItems (needs Pass 2)
+             └─ Pass 2: Version fetches — pool(allRvtItems, 8) — only for items not yet classified
                   /items/{id}/versions → extension.type → RCW or RC
                                        → revitProjectVersion → year
+                                       → if absent: infer from lastModifiedTime
 ```
+
+### Folder walk optimisations
+
+Three layers prevent wasted API calls on folders that cannot contain RCW models:
+
+**Skip list (`SKIP_FOLDERS`)** — 35+ folder names skipped at any depth in the BFS:
+- ACC system folders: Plans, Photos, Submittals, RFIs, Issues, Closeout, Reports, Transmittals, Markups, Specifications, Correspondence, Meetings, Contracts
+- Archive/obsolete: Archive, Archives, Old, Superseded, Backup, Backups, Deprecated, Previous, History, Legacy, Obsolete
+- Admin: Admin, Administration, Templates
+- Media: Images, Pictures, Video, Videos, Documents, Sheets
+- Workflow: Incoming, Outgoing, For Review, For Approval, Issued, Record Drawings
+
+**Depth limit (4)** — BFS never descends past `topFolder / discipline / phase / subphase`. Covers every documented real-world ACC structure; eliminates timeouts on deep demo/test accounts.
+
+**Priority-first BFS** — Folders scan in priority order within each BFS level:
+- Priority 0: `Project Files` (working models)
+- Priority 1: `Shared` (Design Collaboration consumed models)
+- Priority 2: Known discipline names (Architecture, Structural, MEP, Civil, etc.)
+- Priority 3: Everything else
 
 ### RCW classification
 
-Classification uses the **version-level** `extension.type` — never the item-level type. Older BIM 360 files often carry `items:autodesk.bim360:File` at item level even when Cloud Workshared, making item-level classification unreliable.
+Classification always uses the **version-level** `extension.type` — never item-level. Older BIM 360 files commonly carry `items:autodesk.bim360:File` at the item level even when Cloud Workshared, making item-level classification unreliable.
 
 ```
 versions:autodesk.bim360:C4RModel   BIM 360 era — most common for affected files
@@ -196,7 +242,7 @@ versions:autodesk.core:C4RModel     ACC native
 accuracy % = classified / (classified + failed)
 ```
 
-Failed files (version call failed after retries) appear in each project's expanded row and in the PDF accuracy box. Inaccessible folders (403) and no-access projects are flagged separately — their contents are genuinely unknown and excluded from both numerator and denominator.
+Failed files (version call failed after all retries) appear in each project's expanded row and in the PDF accuracy statement. Inaccessible folders (403) and no-access projects are flagged separately — their contents are unknown and excluded from accuracy calculations.
 
 ---
 
@@ -204,12 +250,12 @@ Failed files (version call failed after retries) appear in each project's expand
 
 ### PDF report
 
-- Client-side generation via jsPDF + jsPDF-AutoTable — no server
-- Two-tone navy/blue header, colour-coded row backgrounds, status badge pills
-- Scan accuracy statement with file counts and caveats
-- Clickable "Open ACC" buttons link to each project in ACC
-- Per-group export (group header button) or whole-hub export (toolbar)
-- File-level detail pages for critical projects
+- Client-side generation via jsPDF + jsPDF-AutoTable — no server involved
+- Two-tone navy/blue header, colour-coded row backgrounds (red/amber/green/purple by status)
+- Filled status badge pills, version text coloured by tier, 2.5mm red accent bar on critical rows
+- Scan accuracy statement: file-level accuracy %, failed file count, skipped folder caveat
+- Clickable "Open ACC" buttons link directly to each project in ACC
+- Per-group export (buttons appear in each group header when that group finishes) or whole-hub
 
 ### CSV export
 
@@ -224,26 +270,35 @@ Both exports respect the active search, status filter, and sort order.
 
 ## Troubleshooting
 
-**Fewer projects than expected / many "No Access"**
-Use 2-legged Client Secret mode for complete hub coverage. In 3-legged mode, file access is limited to projects you are personally a member of.
+**Many "No Access" projects**
+Use 2-legged Client Secret mode. In 3-legged mode, file access is limited to projects you are personally a member of. This is common on hubs with older BIM 360 projects.
 
 **Sign-in callback error**
-The Callback URL in your APS app does not exactly match the page URL. Check trailing slashes, `http` vs `https`. The expected URL is printed on the setup screen.
+The Callback URL in your APS app does not exactly match the page URL. Check trailing slashes, `http` vs `https`. The expected URL is shown on the setup screen.
 
-**Groups 3+ all show "No RCW"**
-Token expired mid-scan. Upgrade to v1.0.0 — the auto-refresh mechanism silently renews the token between groups.
+**Token expired mid-scan**
+The tool auto-refreshes between groups (every ~100 projects). If a single project takes longer than 60 minutes (very unusual), the 401 handler retries once with a fresh token. If you still see this error, sign out and back in.
 
-**2-legged: secret not accepted / 401 error**
-Check that your APS app type is **Traditional Web App** or **Service App (M2M)** — Single-Page App type does not generate a Client Secret. Also verify the app is registered as a Custom Integration in ACC.
+**2-legged: "401 Unauthorized" on connect**
+Verify your APS app type is **Traditional Web App** or **Service App (M2M)** — Single-Page App does not generate a Client Secret. Also verify the app is registered as a Custom Integration in ACC Account Admin.
+
+**Projects show "No Version" despite being RCW**
+These files use the pre-2023 BIM 360 schema where `revitProjectVersion` is absent. The tool infers the version from the file's last-modified date where possible (≤ threshold+2 years). Files modified after that remain as No Version for manual review in ACC.
+
+**Files show "(est.)" next to their version**
+The version year was inferred from the file's modification date rather than read directly from the API. This occurs on pre-2023 schema files. The inference is conservative — treat these files as requiring verification before assuming they are safe.
 
 **Many "timed out after 5 minutes"**
-Projects with very deep folder structures or slow API responses. The 30s per-request timeout prevents any single hung call from consuming the full project budget. Check the expanded row for `skippedFolders` and `failedFiles` counts.
+Usually indicates a project with an unusually deep or large folder structure. The depth limit (4 levels) and skip list should prevent most of these. Check the expanded row for `skippedFolders` count — if high, the project may have restricted subfolders.
+
+**Scan feels slow on small projects**
+The irreducible cost is one API call per folder (~500ms each). For a typical project with 4 discipline folders, that's ~2 seconds of folder walk plus version fetches. The parallel folder fetches (3 at once) and inline version data (`?include=version`) minimise this as much as the API allows.
 
 **PDF link buttons don't open**
 Use Adobe Acrobat or macOS Preview. Some browser-based PDF viewers strip link annotations.
 
 **Client Secret clears on page refresh**
-By design — the secret lives in browser memory only. Re-enter credentials after each browser session. The session token (without the secret) survives in `sessionStorage` for up to 1 hour, so you can refresh the page and continue viewing results without re-scanning.
+By design — the secret lives in browser memory only. Re-enter credentials after each browser session. The session token survives in `sessionStorage` for up to 1 hour.
 
 ---
 
@@ -251,7 +306,7 @@ By design — the secret lives in browser memory only. Re-enter credentials afte
 
 ```
 /
-├── index.html       Single-file app — all HTML, CSS, and JS
+├── index.html       Single-file app — all HTML, CSS, and JavaScript
 ├── README.md
 ├── ARCHITECTURE.md  Technical internals for contributors
 ├── CONTRIBUTING.md
@@ -267,7 +322,7 @@ No build step, no `node_modules`, no bundler. Open `index.html` directly for loc
 
 Original tool by **Tanmay Bhalerao** — Senior Account Technical Lead, Autodesk.
 
-Community enhancements: ACC Admin API, 2-legged auth, project groups, rate limiting, token auto-refresh, parallel scanning, PDF redesign, accuracy tracking, resilience improvements.
+Community enhancements: ACC Admin API, 2-legged auth, project groups, smart folder scanning, parallel BFS, inline version classification, rate limiting, token auto-refresh, version inference, PDF redesign, accuracy tracking, resilience improvements.
 
 ---
 

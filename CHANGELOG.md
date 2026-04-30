@@ -1,156 +1,98 @@
 # Changelog
 
-All notable changes to this project are documented here.
+All notable changes are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Versioning follows [Semantic Versioning](https://semver.org/).
+
+---
+
+## [1.2.1] — 2026-05-01
+
+### Changed
+- **Version inference extended to full tier range** — previously only files with modification date ≤ threshold were inferred as Critical. Now also infers Outdated for files modified at threshold+1 or threshold+2 (e.g. 2022/2023 with threshold=2021). Files modified before 2020 are always Critical. Files modified after threshold+2 remain as No Version (cannot safely assume Current without API data).
 
 ---
 
 ## [1.2.0] — 2026-05-01
 
 ### Added
-- **Parallel folder fetches (`CONCURRENCY.FOLDER_FETCHES=3`)** — BFS now processes 3 folders simultaneously per project using `Promise.all` batch processing. Each iteration pulls up to 3 items from the priority queue, fetches their contents in parallel, collects subfolder discoveries, re-sorts by priority, and prepends to the queue. Safe for JS's single-threaded event model: post-await synchronous loops execute atomically so `visitedFolders` updates are race-free. Reduces folder-walk time by ~2-3x on typical projects.
-- **`?include=version` inline classification** — Folder contents calls now append `?include=version` to embed each item's latest version data directly in the response. When the inline version data includes `extension.type` and `extension.data.revitProjectVersion`, the item is classified immediately without a separate version API call — eliminating Pass 2 for those items entirely. Items with no inline version data fall back to the existing Pass 2 version call. This is the largest single remaining performance improvement: a project with 5 folders and 15 `.rvt` files could go from 20 API calls (5 folder + 15 version) to as few as 5 (5 folder only).
-- **`apiAllWithInclude(path)`** — Paginated folder contents fetch that adds `?include=version` and returns `{items, included}`. Handles pagination via `links.next`, degrades gracefully on transient errors, and re-throws 403/404 for caller handling.
-- **No-version date inference for C4R files** — When `revitProjectVersion` is absent from the API (pre-2023 BIM 360 schema v1.1.x/v1.2.x) and the file's `lastModifiedTime` year is ≤ the critical threshold, the year is inferred from the modification date and the file is classified as Critical. Files marked with inferred versions show an `(est.)` indicator in the expanded row. Files where inference is not possible (modification date > threshold) retain the "No Version" status for manual review.
-- **No Version status** — New `no-version` project status and amber dashed chip for projects with confirmed RCW files but no version year available. Metric tile, filter option, PDF badge, CSV label, and About page entry added.
+- **Parallel folder fetches (`CONCURRENCY.FOLDER_FETCHES=3`)** — BFS processes 3 folders simultaneously per project using `Promise.all` batching. Each iteration pulls up to 3 items from the priority queue, fetches contents in parallel, collects subfolder discoveries, re-sorts by priority, and prepends to the queue. Safe: JS single-threaded model means post-`await` synchronous loops execute atomically, so `visitedFolders` and `batchSubFolders` mutations are race-free. Reduces folder-walk time 2–3×.
+- **`?include=version` inline classification (`apiAllWithInclude`)** — folder contents calls append `?include=version`, embedding each item's latest version data in the same response. Items whose inline version data contains `extension.type` and `revitProjectVersion` are classified immediately — no separate version API call needed. Pass 2 runs only for items without inline data. A project with 5 folders and 15 RVT files could reduce from 20 API calls to 5.
+- **No Version status** — new `no-version` project status (amber dashed chip) for projects with confirmed RCW files but no version year available from the API. Includes metric tile, filter option, PDF badge, CSV label, About page entry, and expanded row explanation with schema version context.
+- **Version inference from modification date** — when `revitProjectVersion` is absent (pre-2023 BIM 360 schema v1.1.x/v1.2.x), the file's `lastModifiedTime` year is used as a conservative estimate. Applied in both the inline classification path and Pass 2. Files with inferred versions show an `(est.)` label. An amber banner explains the inference in the expanded row.
 
-### Changed
-- **VERSION constant** — bumped to `1.2.0`
+### Fixed
+- **Project showed "No RCW" with confirmed RCW files** — `pStatus` fell through to `no-c4r` when `c4rVersion` was null even if `c4rFiles.length > 0`. New `no-version` check fires first.
+- **Files showed "Outdated" with `—` version** — `parseInt(null||0) = 0 ≤ threshold+2` was always true. File-level chip now checks `!f.version` and shows "No Version" chip for null versions.
 
 ---
 
 ## [1.1.0] — 2026-05-01
 
 ### Added
-- **Folder skip list (`SKIP_TOP_FOLDERS`)** — 22 ACC system and administrative top-level folder names (Plans, Photos, Submittals, RFIs, Issues, Closeout, Reports, Transmittals, Markups, Specifications, Correspondence, Meetings, Contracts, Admin, Archives, Templates, and variants) are skipped at the `topFolders` stage with zero API calls. These are system-created or convention-only folders where Revit models cannot exist. Counted separately as `skippedTopFolders` and shown as an informational note in the expanded row.
-- **Depth limit of 4 (`MAX_FOLDER_DEPTH`)** — BFS traversal capped at depth 4 from the top-level folder, matching the deepest real-world ACC structure documented by Autodesk (`Project Files / Discipline / Phase / Subphase / model.rvt`). Eliminates the dominant cause of 5-minute project timeouts on deep/demo account projects.
-- **Priority-first BFS (`FOLDER_PRIORITY`)** — Folders are scanned in priority order: `Project Files` (depth 0 → priority 0), `Shared` (Design Collaboration consumed copies, priority 1), known discipline names — Architecture, Structural, MEP, Mechanical, Electrical, Plumbing, Civil, Interior, Landscape, Facade, Fire, IT, Technology (priority 2), everything else (priority 3). Sibling folders at each BFS level are sorted by priority before being queued. Ensures discipline folders with working models scan before archive/admin folders, so results appear quickly and timeouts still leave the project with useful data.
-- **401 refresh-and-retry** — When `api()` receives a 401 mid-scan, it calls `refreshSessionIfNeeded(force=true)` and retries the failed request once before aborting. Previously a mid-group token expiry immediately stopped the entire scan.
-- **`force` parameter on `refreshSessionIfNeeded()`** — bypasses the 50-minute age check for on-demand refresh triggered by a 401 response.
+- **`SKIP_FOLDERS` at all depths** — skip list extended from top-level only to every BFS depth. 35+ folder names added covering archive/obsolete (Old, Superseded, Backup, Deprecated, Previous, History, Legacy), admin (Admin, Administration, Templates), media (Images, Pictures, Video, Documents, Sheets), and workflow (Incoming, Outgoing, For Review, For Approval, Issued, Record Drawings) — eliminating API calls for any folder that cannot contain active RCW models.
+- **`MAX_FOLDER_DEPTH=4`** — BFS capped at 4 levels from topFolders, matching the deepest documented real-world ACC structure. Eliminates the dominant cause of 5-minute timeouts on deep/demo account projects.
+- **`FOLDER_PRIORITY` — priority-first BFS** — folders scanned in priority order: `Project Files` (0) → `Shared` (1) → discipline names (2) → other (3). Sibling folders at each BFS level sorted before being prepended to the queue. Results appear quickly and timeouts leave the project with the most important files intact.
+- **`CONCURRENCY.FOLDER_FETCHES` constant** — documents the parallel folder fetch count.
+- **401 refresh-and-retry** — `api()` 401 response triggers `refreshSessionIfNeeded(force=true)` and retries the failed request once before aborting. Previously a mid-group token expiry immediately halted the entire scan.
+- **`force` parameter on `refreshSessionIfNeeded()`** — bypasses the 50-minute age check for on-demand recovery.
 
 ### Changed
-- **GROUP_SIZE 50 → 100** — Larger groups reduce the number of between-group refreshes on small hubs while still completing well within the 60-minute token window.
-- **3-legged rate limit 50 → 100 req/min** — Previous limit was overly conservative and caused the rate throttle to insert waits continuously, making scans significantly slower. 100/min is still well below the actual APS limit (~150/min for user tokens) while eliminating unnecessary drag.
-
-### Fixed
-- Groups 3+ showing "No RCW" even after v1.0.0 auto-refresh — caused by token expiry within a single group (>60 min on large or deep projects); resolved by depth limit + skip list reducing per-project scan time, and by the 401 refresh-and-retry as a backstop.
+- **`GROUP_SIZE` 200 → 100** — groups complete in 5–15 minutes, well within the 60-minute token window. More frequent progressive results on large hubs.
+- **3-legged rate limit 50 → 100 req/min** — previous limit caused continuous throttle waits and made scans significantly slower. 100/min is still conservative (actual limit ~150/min).
+- **`VERSION_FETCHES` 5 → 8** — safe with rate limiter at 100/min (2 projects × 8 = 16 peak).
+- **`SKIP_THRESHOLD` 3 → 1** — after 1 confirmed C4R file, trust item-level RC type for classification.
 
 ---
 
 ## [1.0.0] — 2026-05-01
 
-First stable release. Scanning accuracy confirmed on production hubs. Token auto-refresh resolves multi-group expiry. All known resilience issues addressed.
+First stable release.
 
 ### Added
-
-**Authentication**
-- `offline_access` added to PKCE scope so APS returns a refresh token alongside the access token
-- `refreshSessionIfNeeded()` — called before each scan group; refreshes the token silently if >50 minutes old
-  - 2-legged: re-authenticates using stored `S.clientId` + `S.clientSecret`, no user interaction
-  - 3-legged: uses `refresh_token` grant; supports rolling refresh tokens
-  - 3-legged without refresh token: degrades gracefully — scan continues, 401 handler is backstop
-- `S.tokenIssuedAt` and `S.refreshToken` added to state
-- 401 response in `api()` now immediately stops the scan and renders a clear re-auth prompt
-
-**Scan engine**
-- `RateLimit` token-bucket — proactive rate limiting before each request; auth-mode-aware limits (50/min for 3-legged, 180/min for 2-legged); eliminates 429 cascade stalls
-- 30-second `AbortController` timeout on every `fetch()` — hung connections abort and retry rather than blocking a scan worker indefinitely
-- `API load X%` indicator in scan progress stats when approaching rate limit
-- `RateLimit.calls` reset at the start of each new scan
-
-**PDF report**
-- Full visual redesign matching the screen UI:
-  - Two-tone navy/blue header (title + subtitle strip)
-  - Colour-coded row backgrounds per status (light red/amber/green/purple tints)
-  - Drawn status badge pills (filled rounded rect, white text) in the status column
-  - Version column text coloured to match status
-  - 2.5mm red left accent bar on critical rows
-  - "Open ACC" blue button replaces the broken "View !" link text
-  - Metric tile separators in the metrics strip
-  - Footer with version number and horizontal rule
-- Scan accuracy statement above the projects table: file-level accuracy %, failed file count, skipped folder count, no-access project count, "not an official audit" disclaimer
-
-**UI**
-- Version badge (`v1.0.0`) in topbar, links to GitHub releases — set correctly from JS constants (not broken `${VERSION}` HTML literal)
-- Version card in About page showing version number, release date, and changelog link
-- Current metric tile (green) added to dashboard and PDF metrics strip
-- Critical metric tile now shows red text when > 0, grey/hint when 0 (was incorrectly green when 0)
-- Project state model: Queued → Scanning → result (pending/scanning/done flags)
-- Pool worker yield between tasks prevents a worker from racing through no-access projects synchronously
-- Scan progress shows "X done · Y scanning · Z queued" breakdown
+- **Versioning system** — `VERSION`, `RELEASE_DATE`, `CHANGELOG_URL` constants; topbar version badge linking to GitHub releases; version card in About page
+- **Project groups** — hub split into groups of 200 (later 100); sequential group scanning; collapsible group sections; per-group CSV/PDF export
+- **Per-request 30s timeout** — `AbortController` on every `fetch()`; hung requests abort and retry
+- **Proactive rate limiting** — `RateLimit` token-bucket; auth-mode-aware limits; API load % in progress bar
+- **Token expiry detection** — 401 mid-scan stops cleanly and prompts re-auth
+- **Token auto-refresh** — `refreshSessionIfNeeded()` called before each group; 2-legged silent re-auth; 3-legged `refresh_token` grant; `offline_access` scope
+- **Scan accuracy statement in PDF** — file-level accuracy %, failed-file count, skipped-folder count, no-access caveat
+- **Conservative item-level RC skip** — after confirmed C4R files, known-RC item types skip version call
+- **Current metric tile** — green "Current ≥ threshold+3" card on dashboard and PDF
+- **Queued / Scanning / Done project states** — "Queued" chip before worker pickup, "Scanning" spinner while active
+- **Auth-mode-aware scan concurrency** — 4 parallel projects for 2-legged, 3 for 3-legged
+- **PDF visual redesign** — two-tone header; colour-coded row backgrounds; status badge pills; version text coloured by tier; red left accent on critical rows; "Open ACC" button; footer with version number
 
 ### Fixed
-- **Groups 3+ showing "No RCW"** — token expired mid-scan; resolved by auto-refresh between groups
-- **Critical metric showing green** — was `atRiskTotal > 0 ? red : green`; now `atRiskTotal > 0 ? red : hint`
-- **"View !" in PDF** — `\u2192` (→) not in Helvetica WinAnsi charset; replaced with drawn "Open ACC" button
-- **Version badge showing `v${VERSION}` literally** — template literal in static HTML body cannot be interpolated; fixed by setting from JS in `render()`
+- **Critical metric showed green when zero** — now shows grey/hint when 0, red when > 0
+- **PDF "View !" broken link** — `\u2192` not in Helvetica WinAnsi; replaced with drawn "Open ACC" button
+- **Version badge rendered as literal text** — `${VERSION}` in static HTML cannot be interpolated; fixed by setting from JS in `render()`
+- **`visitedFolders` guard** — prevents duplicate BFS traversal of shared/linked folders
+- **`documents` item type** — `.rvt` files surfacing as `type: "documents"` were silently skipped
+- **`apiAll` URL parsing** — `new URL(href, APS)` replaces brittle string replace
+- **Silent file drop on version failure** — failed files now appear in `failedFiles` list
+- **Pool worker fairness** — `setTimeout(0)` yield prevents workers racing through no-access tasks
 
 ---
 
 ## [0.9.0] — 2026-04-30
 
 ### Added
-
-**Authentication**
-- 2-legged auth — Client Secret entry on setup screen; token held in JS heap only, never stored persistently; session token in `sessionStorage` only
-- Auth-mode-aware instructions throughout the setup screen, dashboard, and About page
-- `connectTwoLegged()` function
-
-**Scan engine**
-- Project groups — `buildGroups()` splits hub into groups of 200; groups scan sequentially; within-group parallelism via `pool()`
-- Auth-mode-aware concurrency — 4 parallel projects for 2-legged, 3 for 3-legged
-- `refreshSessionIfNeeded()` skeleton (completed in v1.0.0)
-- Per-group progress tracking — `grp.pdone`, `grp.eta`, `grp.activeNames`
-- `renderProgress()` fast path — 600ms interval updates 5 DOM elements without full `innerHTML` rebuild
-- Two-pass scan — Pass 1: BFS folder walk (zero version calls); Pass 2: version fetches batched across whole project
-- Conservative item-level RC skip — after ≥3 confirmed C4R files, known-RC item types skip version call
-- `visitedFolders` Set — prevents duplicate BFS traversal of shared/linked folders
-- `apiAll()` with `new URL()` pagination — follows `links.next`, handles all URL forms, returns partial data on transient error
-- `failedFiles` tracking — `.rvt` files whose version call failed shown in expanded row
-- `skippedFolders` counter — 403'd subfolders counted and shown
-- Both `items` and `documents` item types accepted for `.rvt` filtering
-- 429 backoff and 5xx retry in `api()`
-
-**UI**
-- Collapsible group sections with group header: status chip, summary badges, mini progress bar, per-group CSV/PDF buttons
-- No Access status chip and expanded row explanation (auth-mode-aware message)
-- Queued / Scanning / Done project states
-- Multi-status filter — filter dropdown is a multi-select Set; filter labels update with active threshold
-- Per-group and whole-hub CSV/PDF export buttons
-- Sort buttons in global controls bar
-
-**PDF**
-- Per-group or whole-hub export (optional `groupIdx` parameter)
-- Filter-aware — applies active search + status filter + sort
-- `didParseCell` uses `filteredProjs[row.index]` — correct when filter is active
-- Auto-height risk banner and project header banners via `splitTextToSize`
-- Scan accuracy statement (completed in v1.0.0)
+- 2-legged auth — Client Secret, memory-only storage, session token in `sessionStorage`
+- Admin API integration — enumerates all active projects regardless of membership
+- Member project pre-filter — pre-marks non-member projects as No Access (3-legged)
+- Multi-status filter, threshold picker, PDF export, CSV export
+- Parallel BFS scan, group scanning, failedFiles, skippedFolders
+- Demo mode, No Access status, pending/scanning/done states
 
 ### Fixed
-- `atRisk` stale on threshold change — removed stored field; always computed dynamically
-- MIXED project status — `parseInt('MIXED')` = NaN caused silent fallthrough; explicit status added
-- BFS recursion stack overflow — replaced recursive `scanFolder` with iterative BFS queue
-- Folder pagination — `api()` previously only returned first page of folder contents
-- Silent file drop on version call failure — files now go to `failedFiles` bucket
-
----
-
-## [0.8.x] — Pre-release
-
-### Added
-- ACC Admin API integration — `GET /construction/admin/v1/accounts/{accountId}/projects`
-- Member project pre-filter (3-legged) — `getMemberProjectIds()` pre-marks non-member projects
-- Admin notice on setup screen and dashboard (auth-mode-aware)
-- Threshold picker — 2021 or 2022 critical cutoff
-- Status tiers — threshold-relative Critical/Outdated/Current classification
-- Multi-status filter dropdown (multi-select Set)
-- PDF export with jsPDF + jsPDF-AutoTable — landscape A4, filter-aware
-- CSV export — project summary + per-file RCW detail
-- Demo mode — 9 sample projects covering all status tiers
+- `atRisk` stale on threshold change — dynamic `atRiskCount(p)` replaces stored field
+- MIXED project status — explicit status; `parseInt('MIXED')` = NaN no longer silently fails
+- BFS recursion → iterative BFS queue
+- Folder pagination — full `apiAll()` pagination
 
 ---
 
 ## [0.1.0] — Original release (Tanmay Bhalerao)
 
-Initial version: single-page app, Data Management API only (member projects), basic `.rvt` version display, deprecation status indicators.
+Initial version: Data Management API, member projects only, basic version display and deprecation status indicators.
