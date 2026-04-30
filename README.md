@@ -96,7 +96,7 @@ Standard OAuth 2.0 Authorization Code flow with PKCE. You are redirected to Auto
 **APS app type:** Desktop, Mobile, Single-Page App
 
 **Access:**
-- All projects listed by the Admin API (requires Account Admin role)
+- All projects listed by the Admin API (requires Hub Admin role)
 - File contents **only for projects you are a member of** — the Admin API lists all projects, but the Data Management API enforces project-level membership for folder and file access
 
 **Token lifetime:** 1 hour. Auto-refreshed between groups using a refresh token (granted via `offline_access` scope).
@@ -130,7 +130,7 @@ Machine-to-machine `client_credentials` grant. The app exchanges your Client ID 
 - **Never use this mode if your APS app has write scopes** — this tool only requests `data:read account:read`
 - If your Client Secret is compromised, rotate it immediately in the APS developer portal
 
-**Best for:** Account Admins scanning large hubs with many older BIM 360 projects where 3-legged mode leaves significant numbers of projects as "No Access".
+**Best for:** Hub Admins scanning large hubs with many older BIM 360 projects where 3-legged mode leaves significant numbers of projects as "No Access".
 
 ---
 
@@ -153,13 +153,13 @@ Go to [aps.autodesk.com](https://aps.autodesk.com) → **My Apps** → **Create 
 - Copy your Client Secret — it is only shown once
 - Callback URL is not required for 2-legged
 
-Enable API products for both: **Data Management**, **ACC Account Administrator**
+Enable API products for both: **Data Management**, **ACC Hub Administrator**
 
 ### Step 2 — Register as a Custom Integration in ACC
 
-1. ACC → **Account Admin → Custom Integrations → Add custom integration**
+1. ACC → **Hub Admin → Custom Integrations → Add custom integration**
 2. Paste your Client ID and complete the flow
-3. The user performing this step must have **Account Admin** role
+3. The user performing this step must have **Hub Admin** role
 
 ### Step 3 — Deploy to GitHub Pages
 
@@ -173,7 +173,7 @@ Enable API products for both: **Data Management**, **ACC Account Administrator**
 
 **3-legged:**
 1. Paste Client ID → **Sign in with Autodesk**
-2. Autodesk login page → authenticate with an Account Admin account
+2. Autodesk login page → authenticate with an Hub Admin account
 3. Select hub → scanning begins
 
 **2-legged:**
@@ -282,7 +282,7 @@ The Callback URL in your APS app does not exactly match the page URL. Check trai
 The tool auto-refreshes between groups (every ~100 projects). If a single project takes longer than 60 minutes (very unusual), the 401 handler retries once with a fresh token. If you still see this error, sign out and back in.
 
 **2-legged: "401 Unauthorized" on connect**
-Verify your APS app type is **Traditional Web App** or **Service App (M2M)** — Single-Page App does not generate a Client Secret. Also verify the app is registered as a Custom Integration in ACC Account Admin.
+Verify your APS app type is **Traditional Web App** or **Service App (M2M)** — Single-Page App does not generate a Client Secret. Also verify the app is registered as a Custom Integration in ACC Hub Admin.
 
 **Projects show "No Version" despite being RCW**
 These files use the pre-2023 BIM 360 schema where `revitProjectVersion` is absent. The tool infers the version from the file's last-modified date where possible (≤ threshold+2 years). Files modified after that remain as No Version for manual review in ACC.
