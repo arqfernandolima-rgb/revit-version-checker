@@ -6,6 +6,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.2.8] — 2026-04-30
+
+### Fixed
+- **Per-project scan timer not recording** — `proj.scanTime` was displayed in the expanded row but never assigned. `proj.scanStart` was also never set, so the timer always showed nothing. Added `proj.scanStart = Date.now()` before `Promise.race` and `proj.scanTime = elapsed` immediately after. The expanded row now correctly shows e.g. *⏱ Scanned in 4.2s*.
+
+---
+
 ## [1.2.7] — 2026-04-30
 
 ### Fixed

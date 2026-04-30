@@ -231,9 +231,9 @@ tr.risk-row:hover{background:rgba(220,38,38,0.05)}
 </div>
 <script>
 // ─── VERSION ──────────────────────────────────────────────────────────────────
-const VERSION='1.2.7';
+const VERSION='1.2.8';
 const RELEASE_DATE='2026-04-30';
-const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.2.7';
+const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.2.8';
 
 const APS='https://developer.api.autodesk.com';
 const OAUTH={
@@ -998,7 +998,8 @@ async function scanHub(hub){
       c4rFiles:[],cloudFiles:[],
       c4rVersion:null,c4rVersions:[],c4rCount:0,cloudCount:0,c4rCopyCount:0,lastMod:null,
       uniqueC4RFiles:[],systemFiles:[],
-      skippedFolders:0
+      skippedFolders:0,
+      scanStart:null,scanTime:null
     };
   });
   S.projects.filter(p=>p.noAccess).forEach(p=>p.pending=false);
@@ -1046,10 +1047,12 @@ async function scanHub(hub){
       grp.activeNames.add(proj.name);
       render(); // flip row from Queued → Scanning immediately
 
+      proj.scanStart=Date.now();
       const timeout=new Promise(res=>setTimeout(()=>{
         proj.scanError='Timed out after 5 minutes — project may be very large or the API is unresponsive';res();
       },PROJECT_TIMEOUT));
       await Promise.race([scanProject(proj,hub),timeout]);
+      proj.scanTime=parseFloat(((Date.now()-proj.scanStart)/1000).toFixed(1));
 
       deriveProject(proj);
       proj.scanning=false;
