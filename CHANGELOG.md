@@ -6,6 +6,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.2.9] — 2026-04-30
+
+### Changed
+- **Removed verbose skipped-folders banner** — the "N top-level folders skipped (Plans, Photos, etc.)" info block has been removed from the expanded row. The compact skip count next to the scan timer (⏱ Scanned in Xs · N folders skipped) is sufficient.
+
+---
+
 ## [1.2.8] — 2026-04-30
 
 ### Fixed

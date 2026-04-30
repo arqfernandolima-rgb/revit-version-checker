@@ -231,9 +231,9 @@ tr.risk-row:hover{background:rgba(220,38,38,0.05)}
 </div>
 <script>
 // ─── VERSION ──────────────────────────────────────────────────────────────────
-const VERSION='1.2.8';
+const VERSION='1.2.9';
 const RELEASE_DATE='2026-04-30';
-const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.2.8';
+const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.2.9';
 
 const APS='https://developer.api.autodesk.com';
 const OAUTH={
@@ -1998,11 +1998,6 @@ function rRow(p){
         </tr>`;
       }).join('')}
       </tbody></table>`;
-    }
-    if((p.skippedTopFolders||0)>0){
-      html+=`<div style="margin:8px 0 4px;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;font-size:11px;color:var(--muted)">
-        ${p.skippedTopFolders} top-level folder${p.skippedTopFolders!==1?'s':''} skipped (Plans, Photos, etc.) — these are ACC system folders that cannot contain Revit models.
-      </div>`;
     }
     if(p.skippedFolders>0){
       html+=`<div style="margin:8px 0 4px;padding:7px 10px;background:rgba(180,83,9,0.07);border:1px solid rgba(180,83,9,0.2);border-radius:5px;font-size:11px;color:var(--amber)">
