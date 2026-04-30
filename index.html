@@ -231,9 +231,9 @@ tr.risk-row:hover{background:rgba(220,38,38,0.05)}
 </div>
 <script>
 // ─── VERSION ──────────────────────────────────────────────────────────────────
-const VERSION='1.2.6';
-const RELEASE_DATE='2026-05-01';
-const CHANGELOG_URL='https://github.com/tsb2127/revit-version-checker/releases/tag/v1.2.6';
+const VERSION='1.2.7';
+const RELEASE_DATE='2026-04-30';
+const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.2.7';
 
 const APS='https://developer.api.autodesk.com';
 const OAUTH={
@@ -858,22 +858,9 @@ async function scanProject(proj,hub){
   if(allRvtItems.length===0)return;
 
   // ── PASS 2: Version calls — authoritative C4R detection ────────────────────
-  //
-  // Conservative item-level RC skip:
-  //   If item.attributes.extension.type is exactly 'items:autodesk.bim360:File'
-  //   (a known non-C4R type), skip the version call and add directly as RC.
-  //   Items with ambiguous, missing, or C4R-containing types ALWAYS get version calls.
-  //
-  //   Safety condition: we only apply the skip after at least 3 confirmed C4R items
-  //   have been version-checked in this project, proving the item-type taxonomy is
-  //   reliable for this hub. Before that threshold, all items get version calls.
-  //   This prevents false negatives on hubs where item types may not be trustworthy.
-
-  // NOTE: item-level type is NOT used to skip version calls.
-  // Older BIM 360 C4R models carry items:autodesk.bim360:File at item level even
-  // when Cloud Workshared — using item type as an exclusion filter causes false
-  // negatives for exactly the files this tool exists to find.
-  // Every .rvt item gets a version call; version response is authoritative.
+  // Every .rvt item gets a version call. Item-level extension.type is NOT used
+  // to skip calls — older BIM 360 C4R models show items:autodesk.bim360:File
+  // at item level even when Cloud Workshared. Version response is authoritative.
 
   await pool(allRvtItems.map(({item,path:pathLabel})=>async()=>{
     if(S.aborted)return;
@@ -886,10 +873,10 @@ async function scanProject(proj,hub){
       return;
     }
 
-    let version=null,isC4R=false,modTime=null,modBy=null,versionFailed=false,inferredVersion=false;
+    let version=null,isC4R=false,modTime=null,modBy=null,versionFailed=false,inferredVersion=false,latest=null;
     try{
       const vd=await api('/data/v1/projects/'+proj.id+'/items/'+encodeURIComponent(item.id)+'/versions');
-      const latest=(vd.data||[])[0];
+      latest=(vd.data||[])[0];
       if(latest){
         const ext=latest.attributes?.extension?.type||'';
         isC4R=ext.toLowerCase().includes('c4r');

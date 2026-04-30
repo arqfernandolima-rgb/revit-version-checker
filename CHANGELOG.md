@@ -6,6 +6,14 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.2.7] — 2026-04-30
+
+### Fixed
+- **`latest` block-scope bug** — `const latest` was declared inside the `try{}` block in Pass 2 and referenced outside it on the `modelGuid` line. This caused a `ReferenceError` for every successfully-fetched file, which the `pool()` worker silently caught (`catch(e){results[i]=undefined}`), dropping every file before it could be pushed to `c4rFiles` or `cloudFiles`. All projects appeared as No RCW. Fix: moved `latest` to the outer `let` declaration and changed the inner assignment from `const` to a plain assignment.
+- **Stale comment block removed** — the "Conservative item-level RC skip / isDefinitelyRC" comment block introduced in v1.2.4 described an optimization that was already removed. Replaced with a single accurate note.
+
+---
+
 ## [1.2.3] — 2026-05-01
 
 ### Changed

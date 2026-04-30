@@ -1,6 +1,6 @@
 # Revit Version Checker
 
-[![Version](https://img.shields.io/badge/version-1.2.3-blue)](https://github.com/tsb2127/revit-version-checker/releases/tag/v1.2.3)
+[![Version](https://img.shields.io/badge/version-1.2.7-blue)](https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.2.7)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 **Scan every project in an Autodesk Forma / ACC hub for Revit cloud worksharing deprecation risk — no server required.**
@@ -32,7 +32,6 @@ Finding affected projects manually — hub by hub, project by project — is imp
 | Depth limit | BFS capped at depth 4 — matches deepest real-world ACC layout; eliminates timeout on deep/demo projects |
 | Priority-first scan | Project Files and discipline folders scan before archive/admin folders — results appear fast |
 | Parallel folder fetches | 3 folder content calls per project in parallel — 2–3× faster folder walk |
-| Inline version data | `?include=version` on folder calls returns version data in the same response — eliminates separate version calls for many files |
 | Project groups | Hub split into groups of 100; groups scan sequentially; results appear progressively; exportable per group |
 | Parallel scanning | 3–4 projects in parallel within each group; 8 version fetches per project |
 | Proactive rate limiting | Token-bucket tracks calls/min; inserts precise waits before hitting APS limits |
@@ -198,10 +197,8 @@ scanHub()
              │    Queue ordered by FOLDER_PRIORITY (Project Files → Shared → disciplines → other)
              │    SKIP_FOLDERS applied at every depth (Archive, Old, Specs, Admin, etc.)
              │    MAX_FOLDER_DEPTH=4 — never descends beyond discipline/phase/subphase
-             │    apiAllWithInclude() — fetches contents + inline version data (?include=version)
-             │    Items with inline version data → classified immediately, no Pass 2 call
-             │    Items without inline version data → allRvtItems (needs Pass 2)
-             └─ Pass 2: Version fetches — pool(allRvtItems, 8) — only for items not yet classified
+             │    Collects all .rvt items (hidden:true filtered); GUID-named files → systemFiles[]
+             └─ Pass 2: Version fetches — pool(allRvtItems, 8) — every .rvt item gets a call
                   /items/{id}/versions → extension.type → RCW or RC
                                        → revitProjectVersion → year
                                        → if absent: infer from lastModifiedTime
@@ -292,7 +289,7 @@ The version year was inferred from the file's modification date rather than read
 Usually indicates a project with an unusually deep or large folder structure. The depth limit (4 levels) and skip list should prevent most of these. Check the expanded row for `skippedFolders` count — if high, the project may have restricted subfolders.
 
 **Scan feels slow on small projects**
-The irreducible cost is one API call per folder (~500ms each). For a typical project with 4 discipline folders, that's ~2 seconds of folder walk plus version fetches. The parallel folder fetches (3 at once) and inline version data (`?include=version`) minimise this as much as the API allows.
+The irreducible cost is one API call per folder (~500ms each) plus one version call per `.rvt` file. For a typical project with 4 discipline folders and 10 models, that's ~2 seconds of folder walk plus version fetches. The parallel folder fetches (3 at once) and 8-concurrent version calls minimise this as much as the API allows.
 
 **PDF link buttons don't open**
 Use Adobe Acrobat or macOS Preview. Some browser-based PDF viewers strip link annotations.

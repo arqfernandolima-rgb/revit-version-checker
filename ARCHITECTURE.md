@@ -20,7 +20,6 @@ index.html
     ├── RateLimit             Token bucket — proactive throttling
     ├── api()                 Fetch wrapper: throttle, timeout, retry, 401/429/5xx
     ├── apiAll()              Paginated fetch (follows links.next)
-    ├── apiAllWithInclude()   Paginated fetch + ?include=version inline data
     ├── Scan constants        SKIP_FOLDERS, MAX_FOLDER_DEPTH, FOLDER_PRIORITY
     ├── CONCURRENCY           VERSION_FETCHES, FOLDER_FETCHES, YIELD_EVERY
     ├── GROUP_SIZE            Projects per sequential scan group
@@ -138,15 +137,20 @@ const S = {
   scanning: false,          // actively being scanned
   noAccess: false,          // 403 on topFolders
   scanError: null,
-  c4rFiles: [],             // Cloud Workshared .rvt files
+  c4rFiles: [],             // Cloud Workshared .rvt files (all copies)
   cloudFiles: [],           // Non-workshared .rvt files
   failedFiles: [],          // .rvt files where version call failed
+  systemFiles: [],          // GUID-named files (DA outputs, conflict backups) — not counted toward risk
+  uniqueC4RFiles: [],       // deduplicated c4rFiles by modelGuid — populated by deriveProject()
   c4rVersion: null,         // dominant version: string | 'MIXED' | null
   c4rVersions: [],
-  c4rCount: 0, cloudCount: 0,
+  c4rCount: 0,              // unique RCW model count (not file copy count)
+  c4rCopyCount: 0,          // number of Design Collaboration copies excluded from c4rCount
+  cloudCount: 0,
   skippedFolders: 0,        // 403'd subfolders
   skippedTopFolders: 0,     // structurally skipped (SKIP_FOLDERS match)
   lastMod: null,
+  scanTime: null,           // seconds from pick-up to deriveProject() completion
   // NOTE: atRisk is NEVER stored — always computed via atRiskCount(p)
 }
 ```
@@ -163,6 +167,8 @@ const S = {
   modTime: '2021-03-11T...',
   modBy: 'John Janzen',
   inferredVersion: false,   // true when year came from modTime, not revitProjectVersion
+  modelGuid: 'e5a59497-...', // from extension.data.modelGuid — shared across Design Collaboration copies
+  isCopy: false,            // true if another file in the same project shares this modelGuid
 }
 ```
 
@@ -225,14 +231,6 @@ Every API call flows through `api()`:
 ### `apiAll(path)`
 
 Follows `links.next` pagination. Uses `new URL(href, APS)` for robust URL normalisation. Returns partial results on transient error rather than discarding everything.
-
-### `apiAllWithInclude(path)`
-
-Same as `apiAll` but appends `?include=version` to the first request. Returns `{items, included}`:
-- `items` — the folder contents array (`data` from the response)
-- `included` — embedded version objects for each item in the listing
-
-When APS supports this parameter (most environments), version data is returned inline with the folder listing, eliminating separate version API calls for those items. Degrades gracefully if unsupported.
 
 ### Rate limiter
 
@@ -297,27 +295,29 @@ topFolders API call
   └─ Build initial queue with depth=1
 ```
 
-#### Pass 1 — Parallel BFS with inline version data
+#### Pass 1 — Parallel BFS
 
 ```
 while queue not empty:
   batch = queue.splice(0, FOLDER_FETCHES)   // take up to 3
   await Promise.all(batch.map(async entry =>
-    apiAllWithInclude(contents URL)         // fetches items + included versions
-    ├─ Build inlineVersion Map: itemId → version object
+    apiAll(contents URL)                    // plain folder contents fetch
     ├─ Subfolders:
     │    Skip if in visitedFolders (duplicate guard)
     │    Skip if name in SKIP_FOLDERS
     │    Skip if depth >= MAX_FOLDER_DEPTH
     │    Add to batchSubFolders with priority
     └─ .rvt items:
-         If inlineVersion has data → classify immediately, push to c4rFiles/cloudFiles
-         If no inline data → push to allRvtItems (needs Pass 2)
+         Skip if attributes.hidden === true  (ACC system/derivative artifacts)
+         If isSystemName(name) → push to proj.systemFiles[] (not counted toward risk)
+         Otherwise → push to allRvtItems (Pass 2)
   ))
   batchSubFolders.sort by priority → queue.unshift (depth-first, priority-ordered)
 ```
 
 JavaScript is single-threaded: post-`await` synchronous code within each batch item executes atomically, so `visitedFolders` and `batchSubFolders` mutations are race-free.
+
+> **Why not `?include=version`?** Appending `?include=version` forces APS to resolve version metadata server-side for every item in the folder — including PDFs, DWGs, images. On a folder with 200 non-Revit files this pushes response time well past the 30s per-request timeout. The plain `apiAll` call is reliable; version data is fetched selectively in Pass 2 only for `.rvt` files.
 
 #### Version inference (both inline and Pass 2 paths)
 
@@ -338,21 +338,19 @@ This covers:
 - Files modified before 2020 → Critical (always ≤ any threshold we use)
 - Files modified after threshold+2 → left as No Version (manual review required)
 
-#### Pass 2 — Version fetches for remaining items
+#### Pass 2 — Version fetches
 
 ```
 pool(allRvtItems, VERSION_FETCHES=8):
-  Conservative RC skip: if confirmedC4RCount ≥ 1 AND item type is known-RC → skip
   api(/items/{id}/versions)
     └─ versions[0].extension.type → .includes('c4r') → isC4R
     └─ versions[0].extension.data.revitProjectVersion → year
     └─ if absent: apply date inference from lastModifiedTime
+    └─ versions[0].extension.data.modelGuid → stored for deduplication
   Push to c4rFiles, cloudFiles, or failedFiles
 ```
 
-**Why version-level C4R detection is mandatory:** Older BIM 360 files (2019–2022) commonly carry `items:autodesk.bim360:File` at the item level even when Cloud Workshared. Item-level type is not reliable for classification. The version-level `extension.type` is always authoritative.
-
-**Conservative RC skip:** After ≥1 confirmed C4R file, items whose item-level type is `bim360:file`, `bim360:document`, or `bim360:transmittal` skip the version call and go directly to `cloudFiles`. One confirmed C4R proves the hub's item-type taxonomy is reliable.
+**Why every `.rvt` item gets a version call:** Older BIM 360 files (2019–2022) commonly carry `items:autodesk.bim360:File` at the item level even when Cloud Workshared. Item-level type is not reliable. The version-level `extension.type` is authoritative — no item-level shortcuts are taken.
 
 ---
 
@@ -436,9 +434,12 @@ These must be preserved across all changes:
 | `pStatus(p)` is always pure | No side effects — called in render loops, filter, sort, export |
 | `didParseCell`/`didDrawCell` use `filteredProjs[row.index]` | Active filter makes `S.projects` indices wrong |
 | C4R detection uses **version-level** `extension.type` | Item-level type is unreliable for pre-2023 BIM 360 files |
+| No item-level type shortcuts in Pass 2 | `isDefinitelyRC` caused false negatives for older BIM 360 C4R files |
+| `latest` declared outside the `try{}` block | Keeps `modelGuid` in scope after the try-catch; pool silently swallows ReferenceErrors |
 | `S.clientSecret` never written to any storage | Security invariant — heap memory only |
 | PDF column widths sum to 269mm | Layout breaks if mismatched |
 | `inferredVersion=true` whenever version came from modTime | UI must show `(est.)` label to be transparent |
+| `c4rCount` uses `uniqueC4RFiles`, not `c4rFiles` | Design Collaboration copies inflate raw count; risk assessment uses unique models |
 
 ---
 
