@@ -231,9 +231,9 @@ tr.risk-row:hover{background:rgba(220,38,38,0.05)}
 </div>
 <script>
 // ─── VERSION ──────────────────────────────────────────────────────────────────
-const VERSION='1.2.4';
+const VERSION='1.2.5';
 const RELEASE_DATE='2026-05-01';
-const CHANGELOG_URL='https://github.com/tsb2127/revit-version-checker/releases/tag/v1.2.4';
+const CHANGELOG_URL='https://github.com/tsb2127/revit-version-checker/releases/tag/v1.2.5';
 
 const APS='https://developer.api.autodesk.com';
 const OAUTH={
@@ -1983,6 +1983,14 @@ function rRow(p){
   </tr>`;
   if(isExp){
     html+=`<tr class="xrow"><td colspan="9"><div class="xinner">`;
+    if(p.scanTime!==undefined&&p.scanTime!==null){
+      const sf=p.skippedTopFolders||0;
+      html+=`<div style="font-size:10px;color:var(--hint);margin-bottom:8px;font-family:monospace;display:flex;gap:12px">
+        <span>&#x23F1; Scanned in <strong>${p.scanTime}s</strong></span>
+        ${sf>0?`<span>${sf} folder${sf!==1?'s':''} skipped (non-RVT)</span>`:''}
+        ${p.scanError?`<span style="color:var(--red)">${esc(p.scanError)}</span>`:''}
+      </div>`;
+    }
     if((p.c4rFiles||[]).length>0){
       html+=`<div class="xsec-head"><span class="type-pill tp-c4r" style="margin-right:6px">RCW</span>Revit Cloud Workshared — version locked, counts toward risk</div>
       <table class="xmini"><thead><tr>
