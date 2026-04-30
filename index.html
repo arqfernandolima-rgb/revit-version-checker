@@ -231,9 +231,9 @@ tr.risk-row:hover{background:rgba(220,38,38,0.05)}
 </div>
 <script>
 // ─── VERSION ──────────────────────────────────────────────────────────────────
-const VERSION='1.2.1';
+const VERSION='1.2.2';
 const RELEASE_DATE='2026-05-01';
-const CHANGELOG_URL='https://github.com/tsb2127/revit-version-checker/releases/tag/v1.2.1';
+const CHANGELOG_URL='https://github.com/tsb2127/revit-version-checker/releases/tag/v1.2.2';
 
 const APS='https://developer.api.autodesk.com';
 const OAUTH={
@@ -482,7 +482,7 @@ function renderProgress(){
 }
 
 // At-risk file count — always computed dynamically so threshold slider is instant
-const atRiskCount=p=>(p.c4rFiles||[]).filter(f=>isAtRisk(f.version)).length;
+const atRiskCount=p=>(p.uniqueC4RFiles||p.c4rFiles||[]).filter(f=>isAtRisk(f.version)).length;
 
 // ─── RATE LIMITER ─────────────────────────────────────────────────────────────
 // Proactive back-pressure: track calls in the last 60s and insert a brief pause
@@ -625,7 +625,7 @@ async function apiAll(path){
 
 // ─── ACC ADMIN API — ALL PROJECTS ─────────────────────────────────────────────
 // Returns ALL active projects regardless of user membership.
-// Requires account:read scope + Account Admin role in the hub.
+// Requires account:read scope + Hub Admin role in the hub.
 async function getAllAdminProjects(accountId){
   let all=[],offset=0,total=Infinity;
   while(offset<total){
@@ -633,7 +633,7 @@ async function getAllAdminProjects(accountId){
     try{d=await api(`/construction/admin/v1/accounts/${accountId}/projects?limit=100&offset=${offset}&includeDeleted=false`);}
     catch(e){
       if(e.message.startsWith('401')||e.message.startsWith('403'))
-        throw new Error('Admin API access denied. Make sure: (1) your APS app has account:read scope, (2) you signed in after adding that scope, and (3) you are an Account Admin in this hub.');
+        throw new Error('Admin API access denied. Make sure: (1) your APS app has account:read scope, (2) you signed in after adding that scope, and (3) you are a Hub Admin in this hub.');
       throw e;
     }
     const results=d.results||d.data||[];
@@ -755,8 +755,9 @@ async function scanProject(proj,hub){
   proj.c4rFiles=[];
   proj.cloudFiles=[];
   proj.failedFiles=[];
+  proj.systemFiles=[];      // hidden or GUID-named items — not counted toward risk
   proj.skippedFolders=0;
-  proj.skippedTopFolders=0; // top-level folders skipped as known non-RVT containers
+  proj.skippedTopFolders=0;
 
   // ── PASS 1: BFS folder walk — collect all .rvt items, ZERO version calls ──────
   // IMPORTANT: C4R detection uses VERSION response (Pass 2), not item-level type.
@@ -796,10 +797,19 @@ async function scanProject(proj,hub){
   // so priority order is maintained across parallel fetches.
   // JS is single-threaded: syncronous post-await loops within each batch item
   // execute atomically, so visitedFolders updates are race-free.
+  // Items with hidden:true are ACC system/derivative artifacts not visible in the UI
   const isRvt=i=>{
+    if(i.attributes?.hidden)return false;
     const name=i.attributes?.displayName||i.attributes?.name||'';
     return(i.type==='items'||i.type==='documents')&&name.toLowerCase().endsWith('.rvt');
   };
+  // System-generated filenames: UUIDs, 32-char hex, URN-fragment names, pure numeric GUIDs.
+  // These are DA outputs, conflict backups, or internal storage objects — not user models.
+  // We don't skip them but route them to systemFiles[] so users can see them separately.
+  const isSystemName=name=>/^[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}\.rvt$/i.test(name)
+    ||/^[0-9a-f]{32}\.rvt$/i.test(name)
+    ||/^vf\.[A-Za-z0-9_-]{10,}\.rvt$/.test(name)
+    ||/^[0-9a-f]{20,}\.rvt$/i.test(name);
 
   while(queue.length>0&&!S.aborted){
     if(++foldersSinceYield>=CONCURRENCY.YIELD_EVERY){
@@ -859,7 +869,13 @@ async function scanProject(proj,hub){
             //   > threshold+2          → too risky to call "Current" without proof — leave null
             if(modYear<=S.threshold+2){version=String(modYear);inferredVersion=true;}
           }
-          const f={id:item.id,name:item.attributes?.displayName||'',path:pathLabel,version,isC4R,modTime,modBy,inferredVersion};
+          const fname=item.attributes?.displayName||item.attributes?.name||'';
+          if(isSystemName(fname)){
+            proj.systemFiles.push({id:item.id,name:fname,path:pathLabel,modTime});
+            return;
+          }
+          const modelGuid=iv.attributes?.extension?.data?.modelGuid||null;
+          const f={id:item.id,name:fname,path:pathLabel,version,isC4R,modTime,modBy,inferredVersion,modelGuid};
           if(isC4R)proj.c4rFiles.push(f);else proj.cloudFiles.push(f);
         }else{
           // No inline version data — queue for Pass 2 version call
@@ -900,6 +916,14 @@ async function scanProject(proj,hub){
   await pool(allRvtItems.map(({item,path:pathLabel})=>async()=>{
     if(S.aborted)return;
     const name=item.attributes?.displayName||item.attributes?.name||'';
+
+    // Route system-generated filenames to systemFiles — not counted toward risk
+    if(isSystemName(name)){
+      proj.systemFiles.push({id:item.id,name,path:pathLabel,
+        modTime:item.attributes?.lastModifiedTime||null});
+      return;
+    }
+
     const rawItemType=(item.attributes?.extension?.type||'').toLowerCase();
 
     // Conservative item-level skip — only once enough C4R files are confirmed
@@ -953,20 +977,47 @@ async function scanProject(proj,hub){
       return;
     }
 
-    if(isC4R)confirmedC4RCount++; // safe — JS is single-threaded; pool workers interleave at awaits
-    const f={id:item.id,name,path:pathLabel,version,isC4R,modTime,modBy,inferredVersion};
+    if(isC4R)confirmedC4RCount++;
+    const modelGuid=latest?.attributes?.extension?.data?.modelGuid||null;
+    const f={id:item.id,name,path:pathLabel,version,isC4R,modTime,modBy,inferredVersion,modelGuid};
     if(isC4R)proj.c4rFiles.push(f);else proj.cloudFiles.push(f);
   }),CONCURRENCY.VERSION_FETCHES);
 }
 
 function deriveProject(p){
   const c4r=p.c4rFiles||[],cloud=p.cloudFiles||[];
-  const vers=[...new Set(c4r.map(f=>f.version).filter(Boolean))];
+
+  // ── Deduplicate C4R files by modelGuid ─────────────────────────────────────
+  // Design Collaboration creates copies of the same model in multiple folders
+  // (working copy, shared folder, consumed package). All copies share the same
+  // modelGuid. For risk assessment we count unique models, not file copies.
+  // For each unique modelGuid, keep the file with the LOWEST (worst) version.
+  // Files without a modelGuid (older schema) are treated as unique.
+  const guidMap=new Map(); // modelGuid → worst-version file
+  const noGuidFiles=[];
+  for(const f of c4r){
+    if(!f.modelGuid){noGuidFiles.push(f);continue;}
+    const existing=guidMap.get(f.modelGuid);
+    if(!existing){guidMap.set(f.modelGuid,f);continue;}
+    // Keep the file with the lower (older) version — worst case for risk
+    const fv=f.version?parseInt(f.version):0;
+    const ev=existing.version?parseInt(existing.version):0;
+    if(fv<ev||(fv===0&&ev!==0))guidMap.set(f.modelGuid,f);
+  }
+  p.uniqueC4RFiles=[...guidMap.values(),...noGuidFiles]; // deduplicated set
+
+  // Annotate copies — files sharing a modelGuid with another file
+  const usedGuids=new Set(guidMap.keys());
+  for(const f of c4r){
+    f.isCopy=!!(f.modelGuid&&usedGuids.has(f.modelGuid)&&guidMap.get(f.modelGuid)!==f);
+  }
+
+  const vers=[...new Set(p.uniqueC4RFiles.map(f=>f.version).filter(Boolean))];
   p.c4rVersion=vers.length===1?vers[0]:vers.length>1?'MIXED':null;
   p.c4rVersions=vers;
-  p.c4rCount=c4r.length;
+  p.c4rCount=p.uniqueC4RFiles.length; // unique models, not file copies
+  p.c4rCopyCount=c4r.length-p.uniqueC4RFiles.length; // number of copies
   p.cloudCount=cloud.length;
-  // atRisk is NOT stored — always computed dynamically via atRiskCount(p)
   const mods=[...c4r,...cloud,...(p.failedFiles||[])].map(f=>f.modTime).filter(Boolean).sort();
   p.lastMod=mods[mods.length-1]||null;
   return p;
@@ -1008,7 +1059,8 @@ async function scanHub(hub){
       scanning:false,
       noAccess,
       c4rFiles:[],cloudFiles:[],
-      c4rVersion:null,c4rVersions:[],c4rCount:0,cloudCount:0,lastMod:null,
+      c4rVersion:null,c4rVersions:[],c4rCount:0,cloudCount:0,c4rCopyCount:0,lastMod:null,
+      uniqueC4RFiles:[],systemFiles:[],
       skippedFolders:0
     };
   });
@@ -1309,10 +1361,14 @@ async function exportPdf(groupIdx){
     const totalRvt=scannedProjects.reduce((s,p)=>(p.c4rFiles?.length||0)+(p.cloudFiles?.length||0)+(p.failedFiles?.length||0)+s,0);
     const classifiedRvt=scannedProjects.reduce((s,p)=>(p.c4rFiles?.length||0)+(p.cloudFiles?.length||0)+s,0);
     const failedRvt=scannedProjects.reduce((s,p)=>(p.failedFiles?.length||0)+s,0);
+    const systemFileTotal=scannedProjects.reduce((s,p)=>(p.systemFiles?.length||0)+s,0);
+    const copyTotal=scannedProjects.reduce((s,p)=>(p.c4rCopyCount||0)+s,0);
     const skippedFolderTotal=scannedProjects.reduce((s,p)=>(p.skippedFolders||0)+s,0);
     const noAccessCount=srcProjs.filter(p=>p.noAccess).length;
     const fileAccuracyPct=totalRvt>0?Math.round((classifiedRvt/totalRvt)*100):100;
     const caveatParts=[];
+    if(copyTotal>0)caveatParts.push(`${copyTotal} RCW file cop${copyTotal!==1?'ies are':'y is'} excluded from risk counts (Design Collaboration copies sharing a model ID with a working copy).`);
+    if(systemFileTotal>0)caveatParts.push(`${systemFileTotal} system/auto-named file${systemFileTotal!==1?'s were':' was'} excluded (hidden ACC items or GUID-named files).`);
     if(failedRvt>0)caveatParts.push(`${failedRvt} .rvt file${failedRvt!==1?'s':''} could not be checked (version API call failed after retries) and may include RCW models.`);
     if(skippedFolderTotal>0)caveatParts.push(`${skippedFolderTotal} folder${skippedFolderTotal!==1?'s were':' was'} inaccessible (403) — contents unknown, not reflected in counts.`);
     if(noAccessCount>0)caveatParts.push(`${noAccessCount} project${noAccessCount!==1?'s':''} had no file access and may contain RCW files.`);
@@ -1552,7 +1608,7 @@ function rSetup(){
       <div>
         <strong>Two ways to connect — choose based on your access needs.</strong>
         <div style="margin-top:5px;line-height:1.7">
-          <strong>Sign in with Autodesk</strong> (3-legged) — requires Account Admin role. File access is limited to projects you are a member of; others are shown as No Access.<br/>
+          <strong>Sign in with Autodesk</strong> (3-legged) — requires Hub Admin role. File access is limited to projects you are a member of; others are shown as No Access.<br/>
           <strong>Client Secret</strong> (2-legged) — app-level access, bypasses project membership. Recommended for hubs with older BIM 360 projects where membership gaps are common.
         </div>
       </div>
@@ -1615,10 +1671,10 @@ function rSetup(){
         <div style="display:flex;gap:11px;align-items:flex-start;padding:14px 0;border-bottom:1px solid var(--border)">
           <div style="width:22px;height:22px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;margin-top:1px">2</div>
           <div>
-            <div style="font-size:12px;font-weight:700;margin-bottom:3px">Add app to ACC — Account Admin required</div>
-            <div style="font-size:11px;color:var(--muted);line-height:1.65;margin-bottom:8px">In ACC → <strong>Account Admin → Custom Integrations → Add custom integration</strong>. Paste your Client ID.</div>
+            <div style="font-size:12px;font-weight:700;margin-bottom:3px">Add app to ACC — Hub Admin required</div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.65;margin-bottom:8px">In ACC → <strong>Hub Admin → Custom Integrations → Add custom integration</strong>. Paste your Client ID.</div>
             <div style="background:rgba(20,115,230,0.06);border:1px solid rgba(20,115,230,0.2);border-radius:var(--r);padding:8px 10px;font-size:11px;color:var(--blue-light);line-height:1.65">
-              <strong>⚠ Account Admin role required.</strong> You must be an Account Admin to use the ACC Admin API. Without this role the scan will only return projects you are already a member of.
+              <strong>⚠ Hub Admin role required.</strong> You must be a Hub Admin to use the ACC Admin API. Without this role the scan will only return projects you are already a member of.
             </div>
           </div>
         </div>
@@ -1663,7 +1719,7 @@ function rSetup(){
         <div style="margin-top:8px;font-size:10px;color:var(--hint);line-height:1.7">
           ⚠ Never use this on a shared or public computer. The secret lives in browser memory while the tab is open — it is not stored anywhere persistently.<br/>
           ⚠ Refreshing the page clears the secret from memory. The session token survives a refresh for up to 1 hour, but if it expires you will need to re-enter your credentials.<br/>
-          ⚠ The APS app must be registered as a <strong>Custom Integration</strong> in ACC Account Admin for the 2-legged token to access project files.
+          ⚠ The APS app must be registered as a <strong>Custom Integration</strong> in ACC Hub Admin for the 2-legged token to access project files.
         </div>
       </div>
 
@@ -1723,8 +1779,8 @@ ${atRiskTotal>0?`<div class="depr">
 <div class="alert ${S.authMode==='2-legged'?'a-info':'a-info'}" style="margin-bottom:14px">
   <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M8 7v5M8 5.2v.8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
   ${S.authMode==='2-legged'
-    ?`<span>Connected with <strong>app credentials (2-legged)</strong>. The app token scans all active projects regardless of project membership. Projects showing <em>No Access</em> means the APS app is not registered as a Custom Integration in ACC Account Admin for this hub.</span>`
-    :`<span>Connected as <strong>${esc(S.uname)}</strong> (3-legged). Projects are pre-checked against your membership — those you are not a member of are marked <em>No Access</em> without scanning. If the project count looks low, verify your <strong>Account Admin</strong> role in ACC settings, or switch to Client Secret (2-legged) for full hub access.</span>`}
+    ?`<span>Connected with <strong>app credentials (2-legged)</strong>. The app token scans all active projects regardless of project membership. Projects showing <em>No Access</em> means the APS app is not registered as a Custom Integration in ACC Hub Admin for this hub.</span>`
+    :`<span>Connected as <strong>${esc(S.uname)}</strong> (3-legged). Projects are pre-checked against your membership — those you are not a member of are marked <em>No Access</em> without scanning. If the project count looks low, verify your <strong>Hub Admin</strong> role in ACC settings, or switch to Client Secret (2-legged) for full hub access.</span>`}
 </div>
 
 <div class="metrics">
@@ -1948,7 +2004,7 @@ function rRow(p){
               ?`<span class="chip chip-warn" style="font-size:9px">Outdated</span>`
               :`<span class="chip chip-ok" style="font-size:9px">Current</span>`;
         return`<tr class="${fc}">
-          <td>${esc(f.name)}</td>
+          <td>${esc(f.name)}${f.isCopy?' <span style="font-size:9px;color:var(--hint);border:1px solid var(--border);border-radius:3px;padding:0 3px;margin-left:3px">copy</span>':''}</td>
           <td><span class="vb ${vClass(f.version)}" style="font-size:10px;padding:1px 7px">${f.version||'—'}${f.inferredVersion?' <span style="font-size:9px;opacity:0.75">(est.)</span>':''}</span></td>
           <td>${fchip}</td>
           <td style="font-size:11px" title="${esc(f.path||'')}">${esc(f.path||'—')}</td>
@@ -1981,6 +2037,18 @@ function rRow(p){
         Scan error: ${esc(p.scanError)}
       </div>`;
     }
+    // System files (hidden or GUID-named)
+    if((p.systemFiles||[]).length>0){
+      html+=`<div style="margin:8px 0 4px;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;font-size:11px;color:var(--muted)">
+        ${p.systemFiles.length} auto-named file${p.systemFiles.length!==1?'s were':' was'} found (hidden ACC items or GUID-named files — likely Design Automation outputs, Desktop Connector backups, or internal system copies). Not counted toward risk.
+      </div>`;
+    }
+    // Design Collaboration copies
+    if((p.c4rCopyCount||0)>0){
+      html+=`<div style="margin:8px 0 4px;padding:7px 10px;background:rgba(91,79,207,0.06);border:1px solid rgba(91,79,207,0.2);border-radius:5px;font-size:11px;color:var(--purple)">
+        <strong>${p.c4rCount} unique RCW model${p.c4rCount!==1?'s':''}</strong> found. ${p.c4rCopyCount} additional file cop${p.c4rCopyCount!==1?'ies':'y'} exist in other folders (shared folder, consumed package copies) — these are the same models counted once. Risk metrics use unique model count. Files marked <em>copy</em> below share a model ID with another file in this project.
+      </div>`;
+    }
     if((p.c4rFiles||[]).some(f=>f.inferredVersion)){
       html+=`<div style="margin:8px 0 4px;padding:8px 11px;background:rgba(180,83,9,0.06);border:1px dashed rgba(180,83,9,0.3);border-radius:5px;font-size:11px;color:var(--amber)">
         <strong>Version estimated from file date.</strong> Files marked <em>(est.)</em> use the pre-2023 BIM 360 schema — <code style="background:rgba(180,83,9,0.1);padding:1px 4px;border-radius:3px;font-size:10px">revitProjectVersion</code> is absent from the API response. The Revit year shown is inferred from the file's last-modified date and may be approximate. <strong>Verify and upgrade in ACC if needed.</strong>
@@ -1993,7 +2061,7 @@ function rRow(p){
     }
     if(p.noAccess){
       const msg=S.authMode==='2-legged'
-        ?'The app token was denied access to this project (403). Ensure the APS app is registered as a Custom Integration in ACC Account Admin and that the integration has the required permissions.'
+        ?'The app token was denied access to this project (403). Ensure the APS app is registered as a Custom Integration in ACC Hub Admin and that the integration has the required permissions.'
         :'This user account is not a project member. The ACC Admin API listed the project, but file-level access requires project membership. Add yourself to the project in ACC, or use Client Secret (2-legged) for membership-independent access.';
       html+=`<div style="margin:8px 0 4px;padding:7px 10px;background:var(--surface2);border:1px solid var(--border2);border-radius:5px;font-size:11px;color:var(--muted)">${msg}</div>`;
     }
@@ -2045,8 +2113,8 @@ function rAbout(){
     <div class="card">
       <div style="font-size:13px;font-weight:700;margin-bottom:8px">Authentication modes</div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;display:grid;gap:8px">
-        <div><strong style="color:var(--text)">Sign in with Autodesk (3-legged)</strong> — Standard OAuth PKCE flow. The token represents the signed-in user. File access is limited to projects the user is a member of. Projects outside membership are pre-detected and marked No Access before scanning begins. Requires Account Admin role to list all projects via the Admin API.</div>
-        <div><strong style="color:var(--text)">Client Secret (2-legged)</strong> — Uses app credentials directly. The token represents the APS application, not a user. File access covers all projects regardless of individual membership — this resolves the common failure on older BIM 360-era projects. The secret is held in browser memory only and cleared when the tab closes. Requires the APS app to be registered as a Custom Integration in ACC Account Admin.</div>
+        <div><strong style="color:var(--text)">Sign in with Autodesk (3-legged)</strong> — Standard OAuth PKCE flow. The token represents the signed-in user. File access is limited to projects the user is a member of. Projects outside membership are pre-detected and marked No Access before scanning begins. Requires Hub Admin role to list all projects via the Admin API.</div>
+        <div><strong style="color:var(--text)">Client Secret (2-legged)</strong> — Uses app credentials directly. The token represents the APS application, not a user. File access covers all projects regardless of individual membership — this resolves the common failure on older BIM 360-era projects. The secret is held in browser memory only and cleared when the tab closes. Requires the APS app to be registered as a Custom Integration in ACC Hub Admin.</div>
       </div>
     </div>
     <div class="card">

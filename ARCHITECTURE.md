@@ -455,7 +455,7 @@ These must be preserved across all changes:
 
 - [ ] APS app type matches auth mode (SPA for 3-legged, Traditional/Service for 2-legged)
 - [ ] Callback URL exactly matches GitHub Pages URL (no trailing slash) — 3-legged only
-- [ ] App registered as Custom Integration in ACC Account Admin
+- [ ] App registered as Custom Integration in ACC Hub Admin
 - [ ] `offline_access` scope granted automatically for 3-legged
 - [ ] `index.html` at repo root
 - [ ] GitHub Pages: `main` branch, root folder
