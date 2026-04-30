@@ -231,9 +231,9 @@ tr.risk-row:hover{background:rgba(220,38,38,0.05)}
 </div>
 <script>
 // ─── VERSION ──────────────────────────────────────────────────────────────────
-const VERSION='1.2.0';
+const VERSION='1.2.1';
 const RELEASE_DATE='2026-05-01';
-const CHANGELOG_URL='https://github.com/tsb2127/revit-version-checker/releases/tag/v1.2.0';
+const CHANGELOG_URL='https://github.com/tsb2127/revit-version-checker/releases/tag/v1.2.1';
 
 const APS='https://developer.api.autodesk.com';
 const OAUTH={
@@ -853,7 +853,11 @@ async function scanProject(proj,hub){
           let inferredVersion=false;
           if(!version&&isC4R&&modTime){
             const modYear=new Date(modTime).getFullYear();
-            if(modYear<=S.threshold){version=String(modYear);inferredVersion=true;}
+            // Infer across all classifiable tiers from file date:
+            //   < 2020 or ≤ threshold  → Critical  (pre-modern BIM 360 era, or at threshold)
+            //   threshold+1 or +2      → Outdated  (e.g. 2022/2023 with threshold=2021)
+            //   > threshold+2          → too risky to call "Current" without proof — leave null
+            if(modYear<=S.threshold+2){version=String(modYear);inferredVersion=true;}
           }
           const f={id:item.id,name:item.attributes?.displayName||'',path:pathLabel,version,isC4R,modTime,modBy,inferredVersion};
           if(isC4R)proj.c4rFiles.push(f);else proj.cloudFiles.push(f);
@@ -921,16 +925,17 @@ async function scanProject(proj,hub){
           // revitProjectVersion absent — pre-2023 BIM 360 schema (v1.1.x/v1.2.x).
           // Infer version year from lastModifiedTime: if the file was last published
           // in year Y, it was almost certainly opened in Revit Y (or Y-1 at most).
-          // We only infer when the year is ≤ current threshold so we flag conservatively:
-          // files modified in or before the critical year are treated as that year.
+          // Infer version year from lastModifiedTime across all classifiable tiers:
+          //   < 2020 or ≤ threshold  → Critical  (pre-modern BIM 360 era, or at threshold)
+          //   threshold+1 or +2      → Outdated  (e.g. 2022/2023 with threshold=2021)
+          //   > threshold+2          → not inferred — can't assume "Current" without API data
           const mt=latest.attributes?.lastModifiedTime;
           if(mt){
             const modYear=new Date(mt).getFullYear();
-            if(modYear<=S.threshold){
-              version=String(modYear); // conservative: flag as critical year
+            if(modYear<=S.threshold+2){
+              version=String(modYear);
               inferredVersion=true;
             }
-            // If modYear > threshold we can't safely infer — leave version null
           }
         }
         modTime=latest.attributes?.lastModifiedTime;
