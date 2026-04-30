@@ -231,9 +231,9 @@ tr.risk-row:hover{background:rgba(220,38,38,0.05)}
 </div>
 <script>
 // ─── VERSION ──────────────────────────────────────────────────────────────────
-const VERSION='1.2.2';
+const VERSION='1.2.3';
 const RELEASE_DATE='2026-05-01';
-const CHANGELOG_URL='https://github.com/tsb2127/revit-version-checker/releases/tag/v1.2.2';
+const CHANGELOG_URL='https://github.com/tsb2127/revit-version-checker/releases/tag/v1.2.3';
 
 const APS='https://developer.api.autodesk.com';
 const OAUTH={
@@ -1646,96 +1646,133 @@ function rSetup(){
     </div>
   </div>
   <div>
+  <div>
+
+    <!-- METHOD 1: Sign in with Autodesk (3-legged) -->
+    <div class="card" style="margin-bottom:12px;border:1.5px solid rgba(20,115,230,0.3)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+        <div style="font-size:14px;font-weight:700">Option A &nbsp;&mdash;&nbsp; Sign in with Autodesk</div>
+        <span style="font-size:10px;font-weight:700;background:var(--blue-dim);color:var(--blue);border-radius:10px;padding:2px 9px;white-space:nowrap">Recommended</span>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.65">Standard OAuth login via Autodesk's own login page. No secret required. File access limited to projects you are a member of — non-member projects show as <em>No Access</em>.</div>
+
+      <!-- Step 1 -->
+      <div style="display:flex;gap:11px;align-items:flex-start;padding-bottom:12px;border-bottom:1px solid var(--border)">
+        <div style="width:22px;height:22px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;margin-top:1px">1</div>
+        <div>
+          <div style="font-size:12px;font-weight:700;margin-bottom:4px">Create an APS app — Single-Page App type</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.65;margin-bottom:7px">
+            <a href="https://aps.autodesk.com" target="_blank" style="color:var(--blue);font-weight:600;text-decoration:none">aps.autodesk.com</a> &rarr; My Apps &rarr; Create App<br/>
+            App type: <strong>Desktop, Mobile, Single-Page App</strong><br/>
+            No Client Secret is generated &mdash; that is expected and correct<br/>
+            Set the <strong>Callback URL</strong> to exactly the address below
+          </div>
+          <div style="font-size:10px;color:var(--hint);margin-bottom:4px">Your Callback URL (copy exactly, no trailing slash):</div>
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;font-size:11px;font-family:monospace;color:var(--blue);word-break:break-all;user-select:all">${window.location.origin+window.location.pathname.replace(/\/$/,'')}</div>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div style="display:flex;gap:11px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--border)">
+        <div style="width:22px;height:22px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;margin-top:1px">2</div>
+        <div>
+          <div style="font-size:12px;font-weight:700;margin-bottom:4px">Register your app in ACC &mdash; Hub Admin required</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.65">
+            ACC &rarr; <strong>Hub Admin &rarr; Custom Integrations &rarr; Add custom integration</strong><br/>
+            Paste your <strong>Client ID</strong> from step 1 and complete the flow.<br/>
+            You must have the <strong>Hub Admin</strong> role to do this.
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div style="display:flex;gap:11px;align-items:flex-start;padding-top:12px">
+        <div style="width:22px;height:22px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;margin-top:1px">3</div>
+        <div style="width:100%">
+          <div style="font-size:12px;font-weight:700;margin-bottom:4px">Enter your Client ID and sign in</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.65;margin-bottom:8px">Paste the Client ID from your APS app. Autodesk's login page will open — no password is handled here. Your Client ID is saved in this browser after first use.</div>
+          <input id="cid" type="text" placeholder="Client ID  (e.g. aBcDeFgHiJkLmNoP…)"
+            value="${esc(S.clientId)}"
+            style="width:100%;height:36px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);padding:0 12px;font-size:12px;font-family:monospace;outline:none;transition:border-color 0.12s;box-sizing:border-box;margin-bottom:9px"
+            oninput="S.clientId=this.value.trim();localStorage.setItem('rvt_client_id',S.clientId);const c2=document.getElementById('cid2');if(c2)c2.value=S.clientId;"/>
+          <button class="btn btn-blue" id="bc" style="width:100%;justify-content:center;height:42px;font-size:13px">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="white"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="white" stroke-width="1.2" fill="none"/></svg>
+            Sign in with Autodesk
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- METHOD 2: Client Secret (2-legged) -->
     <div class="card" style="margin-bottom:12px">
-      <div style="font-size:14px;font-weight:700;margin-bottom:16px">Connect to your ACC hub</div>
-      <div style="display:flex;flex-direction:column;gap:0;margin-bottom:18px">
-        <div style="display:flex;gap:11px;align-items:flex-start;padding-bottom:14px;border-bottom:1px solid var(--border)">
-          <div style="width:22px;height:22px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;margin-top:1px">1</div>
-          <div>
-            <div style="font-size:12px;font-weight:700;margin-bottom:3px">Create an APS app</div>
-            <div style="font-size:11px;color:var(--muted);line-height:1.65;margin-bottom:7px">Go to <a href="https://aps.autodesk.com" target="_blank" style="color:var(--blue);font-weight:600;text-decoration:none">aps.autodesk.com</a> → My Apps → Create App. Choose the type based on how you'll connect:</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:7px">
-              <div style="background:var(--blue-dim);border:1px solid rgba(20,115,230,0.18);border-radius:5px;padding:8px 9px">
-                <div style="font-size:10px;font-weight:700;color:var(--blue);margin-bottom:3px;text-transform:uppercase;letter-spacing:0.05em">Sign in with Autodesk</div>
-                <div style="font-size:10px;color:var(--muted);line-height:1.6">Select <strong>Desktop, Mobile, Single-Page App</strong>. No Client Secret is generated — that's expected. Set Callback URL to the address below.</div>
-              </div>
-              <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:5px;padding:8px 9px">
-                <div style="font-size:10px;font-weight:700;color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:0.05em">Use Client Secret (2-legged)</div>
-                <div style="font-size:10px;color:var(--muted);line-height:1.6">Select <strong>Traditional Web App</strong> or <strong>Service App (M2M)</strong>. Both generate a Client Secret. Callback URL is not required for this flow.</div>
-              </div>
-            </div>
-            <div style="font-size:10px;color:var(--hint);margin-bottom:5px">Callback URL (3-legged only):</div>
-            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;font-size:11px;font-family:monospace;color:var(--blue);word-break:break-all;user-select:all">${window.location.origin+window.location.pathname.replace(/\/$/,'')}</div>
-          </div>
-        </div>
-        <div style="display:flex;gap:11px;align-items:flex-start;padding:14px 0;border-bottom:1px solid var(--border)">
-          <div style="width:22px;height:22px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;margin-top:1px">2</div>
-          <div>
-            <div style="font-size:12px;font-weight:700;margin-bottom:3px">Add app to ACC — Hub Admin required</div>
-            <div style="font-size:11px;color:var(--muted);line-height:1.65;margin-bottom:8px">In ACC → <strong>Hub Admin → Custom Integrations → Add custom integration</strong>. Paste your Client ID.</div>
-            <div style="background:rgba(20,115,230,0.06);border:1px solid rgba(20,115,230,0.2);border-radius:var(--r);padding:8px 10px;font-size:11px;color:var(--blue-light);line-height:1.65">
-              <strong>⚠ Hub Admin role required.</strong> You must be a Hub Admin to use the ACC Admin API. Without this role the scan will only return projects you are already a member of.
-            </div>
-          </div>
-        </div>
-        <div style="display:flex;gap:11px;align-items:flex-start;padding-top:14px">
-          <div style="width:22px;height:22px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;margin-top:1px">3</div>
-          <div style="width:100%">
-            <div style="font-size:12px;font-weight:700;margin-bottom:3px">Paste your Client ID and sign in</div>
-            <div style="font-size:11px;color:var(--muted);line-height:1.65;margin-bottom:9px">Sign-in requests <code style="background:var(--surface2);padding:1px 4px;border-radius:3px;font-size:10px">data:read</code> + <code style="background:var(--surface2);padding:1px 4px;border-radius:3px;font-size:10px">account:read</code> scopes. Client ID saved in your browser after first use.</div>
-            <input id="cid" type="text" placeholder="e.g. aBcDeFgHiJkLmNoPqRsTuVwXyZ012345"
-              value="${esc(S.clientId)}"
-              style="width:100%;height:36px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);padding:0 12px;font-size:12px;font-family:monospace;outline:none;transition:border-color 0.12s;margin-bottom:9px"
-              oninput="S.clientId=this.value.trim();localStorage.setItem('rvt_client_id',S.clientId)"/>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+        <div style="font-size:14px;font-weight:700">Option B &nbsp;&mdash;&nbsp; Use Client Secret</div>
+        <span style="font-size:10px;font-weight:700;background:var(--surface2);color:var(--muted);border:1px solid var(--border);border-radius:10px;padding:2px 9px;white-space:nowrap">Full hub access</span>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.65">App-level token &mdash; scans <strong>all projects regardless of membership</strong>. No login page required. Recommended when many projects appear as <em>No Access</em> with Option A.</div>
+
+      <!-- Step 1 -->
+      <div style="display:flex;gap:11px;align-items:flex-start;padding-bottom:12px;border-bottom:1px solid var(--border)">
+        <div style="width:22px;height:22px;border-radius:50%;background:var(--surface2);border:1.5px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--text);flex-shrink:0;margin-top:1px">1</div>
+        <div>
+          <div style="font-size:12px;font-weight:700;margin-bottom:4px">Create an APS app &mdash; Traditional Web App or Service App</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.65">
+            <a href="https://aps.autodesk.com" target="_blank" style="color:var(--blue);font-weight:600;text-decoration:none">aps.autodesk.com</a> &rarr; My Apps &rarr; Create App<br/>
+            App type: <strong>Traditional Web App</strong> or <strong>Service App (M2M)</strong><br/>
+            Both types generate a Client ID <em>and</em> a Client Secret<br/>
+            Copy both now &mdash; the Client Secret is only shown once<br/>
+            No Callback URL is needed for this flow
           </div>
         </div>
       </div>
-      <button class="btn btn-blue" id="bc" style="width:100%;justify-content:center;height:42px;font-size:13px;margin-bottom:8px">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="white"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="white" stroke-width="1.2" fill="none"/></svg>
-        Sign in with Autodesk
-      </button>
 
-      <div style="display:flex;align-items:center;gap:8px;margin:10px 0">
-        <div style="flex:1;height:1px;background:var(--border)"></div>
-        <span style="font-size:11px;color:var(--hint)">or</span>
-        <div style="flex:1;height:1px;background:var(--border)"></div>
-      </div>
-
-      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:10px">
-        <div style="font-size:12px;font-weight:700;margin-bottom:3px;display:flex;align-items:center;gap:7px">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="7" width="10" height="8" rx="1"/><path d="M5 7V5a3 3 0 016 0v2"/></svg>
-          Use Client Secret — full hub access, session only
-        </div>
-        <div style="font-size:11px;color:var(--muted);line-height:1.65;margin-bottom:9px">
-          2-legged auth uses your app credentials directly — no login page. The token can scan <strong>all projects regardless of membership</strong>. Your secret is held in browser memory only and cleared when you close the tab.
-        </div>
-        <input id="csecret" type="password" placeholder="Client Secret"
-          style="width:100%;height:32px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);padding:0 12px;font-size:12px;font-family:monospace;outline:none;margin-bottom:8px"
-          autocomplete="off" autocorrect="off" spellcheck="false"/>
-        <button class="btn btn-g" id="b2l" style="width:100%;justify-content:center;height:36px;font-size:12px">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 2v4M8 10v4M2 8h4M10 8h4"/></svg>
-          Connect with Client Secret
-        </button>
-        <div style="margin-top:8px;font-size:10px;color:var(--hint);line-height:1.7">
-          ⚠ Never use this on a shared or public computer. The secret lives in browser memory while the tab is open — it is not stored anywhere persistently.<br/>
-          ⚠ Refreshing the page clears the secret from memory. The session token survives a refresh for up to 1 hour, but if it expires you will need to re-enter your credentials.<br/>
-          ⚠ The APS app must be registered as a <strong>Custom Integration</strong> in ACC Hub Admin for the 2-legged token to access project files.
+      <!-- Step 2 -->
+      <div style="display:flex;gap:11px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--border)">
+        <div style="width:22px;height:22px;border-radius:50%;background:var(--surface2);border:1.5px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--text);flex-shrink:0;margin-top:1px">2</div>
+        <div>
+          <div style="font-size:12px;font-weight:700;margin-bottom:4px">Register your app in ACC &mdash; Hub Admin required</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.65">
+            ACC &rarr; <strong>Hub Admin &rarr; Custom Integrations &rarr; Add custom integration</strong><br/>
+            Paste your <strong>Client ID</strong> and complete the flow.<br/>
+            Without this step the app token will be denied access to project files (403).
+          </div>
         </div>
       </div>
 
-      <button class="btn btn-g" id="bd" style="width:100%;justify-content:center">Try demo data</button>
-      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--hint);line-height:1.8">
-        <div>✓ &nbsp;Read-only scopes only — cannot create, edit, or delete anything in ACC</div>
-        <div>✓ &nbsp;Access token expires in 1 hour — re-connect to refresh</div>
-        <div>✓ &nbsp;All API calls go directly to Autodesk — no third-party server involved</div>
-        <div>✓ &nbsp;<em>Sign in with Autodesk</em> opens Autodesk's official login page — no password handled here</div>
-        <div>✓ &nbsp;<em>Client Secret</em> is held in browser memory only and cleared when the tab closes</div>
+      <!-- Step 3 -->
+      <div style="display:flex;gap:11px;align-items:flex-start;padding-top:12px">
+        <div style="width:22px;height:22px;border-radius:50%;background:var(--surface2);border:1.5px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--text);flex-shrink:0;margin-top:1px">3</div>
+        <div style="width:100%">
+          <div style="font-size:12px;font-weight:700;margin-bottom:4px">Enter your Client ID and Client Secret</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.65;margin-bottom:8px">Both fields are required. The Client Secret never leaves your browser — it is held in memory only and cleared when this tab closes.</div>
+          <input id="cid2" type="text" placeholder="Client ID"
+            value="${esc(S.clientId)}"
+            style="width:100%;height:34px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);padding:0 12px;font-size:12px;font-family:monospace;outline:none;transition:border-color 0.12s;box-sizing:border-box;margin-bottom:6px"
+            autocomplete="off"
+            oninput="S.clientId=this.value.trim();localStorage.setItem('rvt_client_id',S.clientId);const c1=document.getElementById('cid');if(c1)c1.value=S.clientId;"/>
+          <input id="csecret" type="password" placeholder="Client Secret"
+            style="width:100%;height:34px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);padding:0 12px;font-size:12px;font-family:monospace;outline:none;transition:border-color 0.12s;box-sizing:border-box;margin-bottom:8px"
+            autocomplete="off" autocorrect="off" spellcheck="false"/>
+          <button class="btn btn-g" id="b2l" style="width:100%;justify-content:center;height:40px;font-size:13px;margin-bottom:10px">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="7" width="10" height="8" rx="1"/><path d="M5 7V5a3 3 0 016 0v2"/></svg>
+            Connect with Client Secret
+          </button>
+          <div style="font-size:10px;color:var(--hint);line-height:1.75;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 10px">
+            &#9888; Never use on a shared or public computer &mdash; the secret is visible in browser memory while this tab is open.<br/>
+            &#9888; Closing this tab or refreshing clears the secret from memory. Re-enter credentials if the session expires.
+          </div>
+        </div>
       </div>
     </div>
-    <div style="background:rgba(220,38,38,0.05);border:1px solid rgba(220,38,38,0.15);border-radius:var(--r);padding:12px 14px">
-      <div style="font-size:11px;font-weight:700;color:var(--red);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.07em">Use at your own risk</div>
-      <div style="font-size:11px;color:rgba(180,30,30,0.8);line-height:1.75">Not an official Autodesk product. Not security-audited. Scope is read-only. Source at <a href="https://github.com/tsb2127/revit-version-checker" target="_blank" style="color:inherit;text-decoration:underline">GitHub</a>.</div>
+
+    <button class="btn btn-g" id="bd" style="width:100%;justify-content:center;margin-bottom:12px">Try demo data</button>
+    <div style="padding-top:10px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--hint);line-height:1.8">
+      <div>&#10003; &nbsp;Read-only &mdash; cannot create, edit, or delete anything in ACC</div>
+      <div>&#10003; &nbsp;All API calls go directly to Autodesk &mdash; no third-party server</div>
+      <div>&#10003; &nbsp;Token expires in 1 hour &mdash; auto-refreshed between scan groups</div>
+      <div>&#10003; &nbsp;Client Secret held in browser memory only &mdash; cleared on tab close</div>
     </div>
+
   </div>
 </div>`;
 }
@@ -2182,9 +2219,10 @@ function bind(){
   const bd=document.getElementById('bd');if(bd)bd.onclick=demo;
   const b2l=document.getElementById('b2l');
   if(b2l)b2l.onclick=async()=>{
-    const cid=(document.getElementById('cid')?.value||'').trim();
+    // Read from cid2 (2-legged card) first, fall back to cid (3-legged card)
+    const cid=((document.getElementById('cid2')?.value||document.getElementById('cid')?.value)||'').trim();
     const csec=(document.getElementById('csecret')?.value||'').trim();
-    if(!cid){S.error='Please enter your Client ID first.';render();return;}
+    if(!cid){S.error='Please enter your Client ID.';render();return;}
     if(!csec){S.error='Please enter your Client Secret.';render();return;}
     b2l.disabled=true;b2l.textContent='Connecting…';
     try{
