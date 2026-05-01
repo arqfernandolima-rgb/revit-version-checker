@@ -405,7 +405,7 @@ const S={
   pct:0,msg:'',pdone:0,ptotal:0,
   scanStart:null,eta:null,
   expanded:new Set(),
-  search:'',statusFilters:new Set(),filterOpen:false,
+  search:'',statusFilters:new Set(),filterOpen:false,_sinputFocus:false,
   sortCol:'risk',sortDir:-1,
   // ── STATUS LOGIC ──────────────────────────────────────────────────────────
   // threshold = the critical cutoff year (user picks 2021 or 2022)
@@ -2033,9 +2033,15 @@ ${nvFileCount>0&&!S.scanning?`<details style="margin-bottom:12px;background:var(
 
 
 <div class="threshold-bar">
+  ${S.projects.length>0&&!S.scanning&&S.projects.some(p=>p.pending)?(()=>{
+    const q=S.search.trim().toLowerCase();
+    const n=q?S.projects.filter(p=>!p.noAccess&&p.name.toLowerCase().includes(q)).length
+             :S.projects.filter(p=>!p.noAccess).length;
+    return`<button class="btn btn-p btn-sm" onclick="startScan()" ${n===0?'disabled':''}>Scan ${n} project${n!==1?'s':''}</button>`;
+  })():''}
   <div class="sw" style="flex:1;max-width:320px">
     <svg viewBox="0 0 16 16" fill="currentColor"><path d="M11.7 10.3a6.5 6.5 0 10-1.4 1.4l3.85 3.85a1 1 0 001.4-1.4l-3.85-3.85zM6.5 11a4.5 4.5 0 110-9 4.5 4.5 0 010 9z"/></svg>
-    <input class="sinput" placeholder="Filter by project name" value="${esc(S.search)}" oninput="S.search=this.value;render()"/>
+    <input id="sinput" class="sinput" placeholder="Filter by project name" value="${esc(S.search)}" oninput="S.search=this.value;S._sinputFocus=true;render()"/>
   </div>
   <div style="display:flex;align-items:center;gap:10px;margin-left:auto">
     <span class="tbar-label">Critical threshold:</span>
@@ -2043,12 +2049,6 @@ ${nvFileCount>0&&!S.scanning?`<details style="margin-bottom:12px;background:var(
       <button class="tbar-btn${S.threshold===2021?' sel':''}" onclick="setThresh(2021)">≤ 2021</button>
       <button class="tbar-btn${S.threshold===2022?' sel':''}" onclick="setThresh(2022)">≤ 2022</button>
     </div>
-    ${S.projects.length>0&&!S.scanning&&S.projects.some(p=>p.pending)?(()=>{
-      const q=S.search.trim().toLowerCase();
-      const n=q?S.projects.filter(p=>!p.noAccess&&p.name.toLowerCase().includes(q)).length
-               :S.projects.filter(p=>!p.noAccess).length;
-      return`<button class="btn btn-p btn-sm" onclick="startScan()" ${n===0?'disabled':''}>Scan ${n} project${n!==1?'s':''}</button>`;
-    })():''}
   </div>
 </div>
 
@@ -2171,16 +2171,8 @@ function rGroup(grp,gi){
   const th=(col,lbl,w)=>`<th style="width:${w}" onclick="sortBy('${col}')">${lbl}${S.sortCol===col?(S.sortDir===1?" ↑":" ↓"):""}</th>`;
   const pct=grp.ptotal>0?Math.round((grp.pdone/grp.ptotal)*100):0;
   const ac=grp.activeNames?.size||0;
-  return`<div class="group-section">
-  <div class="group-hdr${isOpen?" open":""}" onclick="toggleGroup('${grp.id}')">
-    <svg class="gchev${isOpen?" open":""}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
-    <span class="gname">${esc(grp.label)}</span>
-    <div class="gstats">${summaryHtml}</div>
-    ${exportBtns}
-  </div>
-  ${grp.status==="scanning"?`<div class="gprog-wrap"><div id="gpfill-${grp.id}" class="gpfill" style="width:${pct}%"></div></div>
-  <div id="gpstats-${grp.id}" class="gpstats">${grp.pdone} done &middot; ${ac} scanning &middot; ${grp.ptotal-grp.pdone-ac} queued <span id="gpeta-${grp.id}" style="margin-left:8px;color:var(--hint)">${fmtEta(grp.eta)||""}</span></div>`:""}
-  ${isOpen?`<div class="group-body"><div style="overflow-x:auto"><table>
+  const singleGroup=S.groups.length===1;
+  const tableHtml=`<div style="overflow-x:auto"><table>
     <thead><tr>
       <th style="width:28px"></th>
       ${th("name","Project","31%")}
@@ -2196,7 +2188,20 @@ function rGroup(grp,gi){
       ${rows.length===0?`<tr><td colspan="9"><div class="empty"><div class="et">No projects match</div><div class="es">Clear the filter or search term</div></div></td></tr>`:""}
       ${rows.map(p=>rRow(p)).join("")}
     </tbody>
-  </table></div></div>`:""}
+  </table></div>`;
+  if(singleGroup){
+    return`<div class="group-section" style="border-radius:var(--rl)">${tableHtml}</div>`;
+  }
+  return`<div class="group-section">
+  <div class="group-hdr${isOpen?" open":""}" onclick="toggleGroup('${grp.id}')">
+    <svg class="gchev${isOpen?" open":""}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+    <span class="gname">${esc(grp.label)}</span>
+    <div class="gstats">${summaryHtml}</div>
+    ${exportBtns}
+  </div>
+  ${grp.status==="scanning"?`<div class="gprog-wrap"><div id="gpfill-${grp.id}" class="gpfill" style="width:${pct}%"></div></div>
+  <div id="gpstats-${grp.id}" class="gpstats">${grp.pdone} done &middot; ${ac} scanning &middot; ${grp.ptotal-grp.pdone-ac} queued <span id="gpeta-${grp.id}" style="margin-left:8px;color:var(--hint)">${fmtEta(grp.eta)||""}</span></div>`:""}
+  ${isOpen?`<div class="group-body">${tableHtml}</div>`:""}
 </div>`;
 }
 
@@ -2496,6 +2501,7 @@ function bind(){
     S.token='';S.uname='';S.authMode='3-legged';S.clientSecret='';S.tokenExpired=false;S.refreshToken=null;S.tokenIssuedAt=null;
     S.hub=null;S.projects=[];S.phase='setup';S.error=null;render();
   };
+  if(S._sinputFocus){S._sinputFocus=false;const si=document.getElementById('sinput');if(si){const l=si.value.length;si.focus();si.setSelectionRange(l,l);}}
   // Close filter dropdown on any outside click
   // Inner elements call event.stopPropagation() so this only fires for outside clicks
   document.onclick=()=>{
