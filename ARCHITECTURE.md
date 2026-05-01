@@ -366,17 +366,17 @@ pool(c4rFiles where version === null, concurrency=3):
   api(/oss/v2/buckets/{bucket}/objects/{key}/signeds3download?minutesExpiration=10)
     └─ signed URL for S3 Range request
 
-  For each chunk size in [65535, 262143, 1048575, 5242879]:
+  For each chunk size in [65535, 262143, 1048575, 5242879, 10485759, 20971519]:
     fetch(url, { headers: { Range: 'bytes=0-{end}' } })
     └─ _rvtYearFromBytes(arrayBuffer):
          Search UTF-16LE bytes for 'Format: YYYY' (Revit 2019+)
          Fallback: search for 'Autodesk Revit 2' + 3-digit suffix (older)
          Return year string or null
     └─ if found: version = year, versionSource = 'file-header', stop
-    └─ if not found after 5 MB: deepScanFailed = true
+    └─ if not found after 20 MB: deepScanFailed = true
 ```
 
-Per-chunk resolution is logged to console per project: `(64KB:N, 256KB:N, 1MB:N, 5MB:N)` to aid diagnostics.
+Per-chunk resolution is logged to console per project: `(64KB:N, 256KB:N, 1MB:N, 5MB:N, 10MB:N, 20MB:N)` to aid diagnostics.
 
 ---
 
@@ -397,7 +397,7 @@ function pStatus(p) {
 }
 ```
 
-The `no-version` status fires when a project has confirmed C4R files but no version year after all three passes — the DM API lacked `revitProjectVersion`, the file was never translated (no manifest), and the binary parse returned nothing up to 5 MB.
+The `no-version` status fires when a project has confirmed C4R files but no version year after all three passes — the DM API lacked `revitProjectVersion`, the file was never translated (no manifest), and the binary parse returned nothing up to 20 MB. Unresolved files are listed by name and path in the expanded row for manual follow-up.
 
 ---
 

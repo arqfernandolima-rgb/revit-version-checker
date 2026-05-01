@@ -81,7 +81,7 @@ For any RCW file where Pass 1 returned no version, the tool calls the APS Model 
 
 For RCW files still unresolved after Passes 1 and 2, the tool fetches a slice of the raw `.rvt` binary via the OSS signed URL + HTTP Range request and parses the OLE2 compound document structure to read the `BasicFileInfo` stream. That stream always contains `Format: YYYY` (Revit 2019+) or an `Autodesk Revit YYYY` build string (older). This works for any `.rvt` file regardless of age or whether it has ever been opened in the web viewer.
 
-The parse uses progressive chunk sizes (64 KB → 256 KB → 1 MB → 5 MB), stopping as soon as the version is found. Over 95% of files resolve within the first chunk; the 5 MB final attempt covers deep OLE2 structures in large files.
+The parse uses progressive chunk sizes (64 KB → 256 KB → 1 MB → 5 MB → 10 MB → 20 MB), stopping as soon as the version is found. Most files resolve within the first chunk; the larger passes cover files where OLE2 sector allocation placed `BasicFileInfo` deeper in the compound document — typically very old BIM 360 files upgraded through multiple Revit versions.
 
 Files still unresolved after all three passes show **No Version** and are flagged for manual verification in ACC.
 
@@ -216,10 +216,10 @@ scanHub()
              └─ Pass 3: Binary OLE2 header parse — automatic, per project
                   Runs for all RCW files still with version null
                   GET /oss/v2/buckets/{bucket}/objects/{key}/signeds3download → signed URL
-                  Progressive Range requests: 64 KB → 256 KB → 1 MB → 5 MB
+                  Progressive Range requests: 64 KB → 256 KB → 1 MB → 5 MB → 10 MB → 20 MB
                   Searches UTF-16LE bytes for "Format: YYYY" or "Autodesk Revit YYYY"
                   → if found: version resolved
-                  → if not found after 5 MB: No Version — verify manually in ACC
+                  → if not found after 20 MB: No Version — listed by name+path for manual review
 ```
 
 ### Folder walk optimisations
@@ -300,7 +300,7 @@ The tool auto-refreshes between groups (every ~100 projects). If a single projec
 Verify your APS app type is **Traditional Web App** or **Service App (M2M)** — Single-Page App does not generate a Client Secret. Also verify the app is registered as a Custom Integration in ACC Hub Admin.
 
 **Projects show "No Version" despite being RCW**
-These files use the pre-2023 BIM 360 schema where `revitProjectVersion` is absent. The tool automatically runs three passes after the DM API: a Model Derivative manifest check (Pass 2) and a binary OLE2 header parse (Pass 3, up to 5 MB). If all three passes return no data, the project shows **No Version**. This is rare and typically indicates a corrupt or non-standard `.rvt` file — verify the Revit version manually by opening the file in Revit or inspecting the file properties in ACC.
+These files use the pre-2023 BIM 360 schema where `revitProjectVersion` is absent. The tool automatically runs three passes: a Model Derivative manifest check (Pass 2) and a binary OLE2 header parse (Pass 3, up to 20 MB across six progressive chunk sizes). If all passes return no data, the project shows **No Version** and the expanded row lists each unresolved file by name and path for manual follow-up in ACC.
 
 **Many "timed out after 5 minutes"**
 Usually indicates a project with an unusually deep or large folder structure. The depth limit (4 levels) and skip list should prevent most of these. Check the expanded row for `skippedFolders` count — if high, the project may have restricted subfolders.
