@@ -9,6 +9,21 @@ This is a personal project and is not official Autodesk software. No warranty or
 
 ---
 
+## [1.5.8] — 2026-05-01
+
+### Added — Project filter before scan
+
+New flow: selecting a hub now fetches the project list first and shows a **filter by project name** screen before any scanning starts.
+
+- Type a partial name (e.g. "Denver", "Campbell") to narrow the list — live preview updates as you type
+- Press **Enter** or click **Scan N matching projects** to start — only matched projects are scanned
+- Leave the filter empty to scan all active projects (same as before)
+- `?project=` URL debug param still works alongside the UI filter
+
+The admin project list is fetched once when the hub is selected; filtering and re-scanning is instant from that point.
+
+---
+
 ## [1.5.7] — 2026-05-01
 
 ### Fixed — Design Collaboration consumed files hidden from scan

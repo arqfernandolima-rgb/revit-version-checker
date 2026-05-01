@@ -1,6 +1,6 @@
 # Revit Version Checker
 
-[![Version](https://img.shields.io/badge/version-1.5.7-blue)](https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.5.7)
+[![Version](https://img.shields.io/badge/version-1.5.8-blue)](https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.5.8)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 **Scan every project in an Autodesk Forma / ACC hub for Revit cloud worksharing deprecation risk — no server required.**
