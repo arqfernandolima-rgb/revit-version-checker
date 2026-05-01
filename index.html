@@ -232,9 +232,9 @@ tr.risk-row:hover{background:rgba(220,38,38,0.05)}
 </div>
 <script>
 // ─── VERSION ──────────────────────────────────────────────────────────────────
-const VERSION='1.5.9';
+const VERSION='1.6.0';
 const RELEASE_DATE='2026-05-01';
-const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.5.9';
+const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.6.0';
 
 const APS='https://developer.api.autodesk.com';
 const OAUTH={
@@ -1116,12 +1116,12 @@ async function binaryScan(proj){
 
 // ─── HUB SCAN ─────────────────────────────────────────────────────────────────
 async function loadHubProjects(hub){
-  S.hub=hub;S.allAdminProjects=[];S.error=null;
-  S.phase='projects';render();
+  S.hub=hub;S.allAdminProjects=[];S.projects=[];S.error=null;
+  S.phase='dash';render();
   const accountId=hub.id.replace(/^b\./,'');
   try{S.allAdminProjects=await getAllAdminProjects(accountId);}
   catch(e){S.error=e.message;S.phase='hubs';render();return;}
-  startScan();
+  render();
 }
 
 async function startScan(){
@@ -1132,8 +1132,10 @@ async function startScan(){
   RateLimit.reset();
   render();
 
+  const _nameFilter=S.search.trim().toLowerCase();
   const _dbgProject=new URLSearchParams(location.search).get('project');
   const active=S.allAdminProjects.filter(p=>p.status==='active'&&
+    (!_nameFilter||p.name?.toLowerCase().includes(_nameFilter))&&
     (!_dbgProject||p.name?.toLowerCase().includes(_dbgProject.toLowerCase())));
   if(_dbgProject)console.warn(`[DEBUG] project filter "${_dbgProject}" → ${active.length} match(es):`,active.map(p=>p.name));
 
@@ -1995,14 +1997,14 @@ ${atRiskTotal>0?`<div class="depr">
   </div>
 </div>`:''}
 
-<div class="alert ${S.authMode==='2-legged'?'a-info':'a-info'}" style="margin-bottom:14px">
+${S.projects.length>0||S.scanning?`<div class="alert ${S.authMode==='2-legged'?'a-info':'a-info'}" style="margin-bottom:14px">
   <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M8 7v5M8 5.2v.8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
   ${S.authMode==='2-legged'
     ?`<span>Connected with <strong>app credentials (2-legged)</strong>. The app token scans all active projects regardless of project membership. Projects showing <em>No Access</em> means the APS app is not registered as a Custom Integration in ACC Hub Admin for this hub.</span>`
     :`<span>Connected as <strong>${esc(S.uname)}</strong> (3-legged). Projects are pre-checked against your membership — those you are not a member of are marked <em>No Access</em> without scanning. If the project count looks low, verify your <strong>Hub Admin</strong> role in ACC settings, or switch to Client Secret (2-legged) for full hub access.</span>`}
-</div>
+</div>`:''}
 
-<div class="metrics">
+${S.projects.length>0||S.scanning?`<div class="metrics">
   <div class="metric"><div class="ml">Active projects</div><div class="mv">${S.projects.length}</div><div class="ms">${S.scanning?'scanning…':'in hub'}</div></div>
   <div class="metric"><div class="ml">Cloud Workshared</div><div class="mv">${totalC4R}</div><div class="ms">RCW models</div></div>
   <div class="metric"><div class="ml">Critical ≤${S.threshold}</div><div class="mv" style="color:${atRiskTotal>0?'var(--red)':'var(--hint)'}">${atRiskTotal}</div><div class="ms">${critProj} project${critProj!==1?'s':''}</div></div>
@@ -2034,7 +2036,7 @@ ${nvFileCount>0&&!S.scanning?`<details style="margin-bottom:12px;background:var(
     </table>
   </div>
 </details>`:''}
-
+`:''/* end scan-results guard */}
 
 <div class="threshold-bar">
   <div class="sw" style="flex:1;max-width:320px">
@@ -2050,8 +2052,24 @@ ${nvFileCount>0&&!S.scanning?`<details style="margin-bottom:12px;background:var(
   </div>
 </div>
 
+${!S.scanning&&S.projects.length===0&&S.hub&&S.allAdminProjects.length===0?`<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:14px 16px;margin-bottom:14px;box-shadow:var(--shadow);display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px"><span class="spinner"></span>Loading project list…</div>`:''}
+
+${!S.scanning&&S.projects.length===0&&S.allAdminProjects.length>0?(()=>{
+  const allActive=S.allAdminProjects.filter(p=>p.status==='active');
+  const f=S.search.trim().toLowerCase();
+  const nMatch=f?allActive.filter(p=>p.name?.toLowerCase().includes(f)).length:allActive.length;
+  return`<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:14px 16px;margin-bottom:14px;box-shadow:var(--shadow);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+  <div>
+    <div style="font-size:13px;font-weight:600">${esc(S.hub.name)}</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:2px">${allActive.length} active project${allActive.length!==1?'s':''}${f?` &nbsp;·&nbsp; <strong>${nMatch}</strong> match filter`:''}${nMatch===0&&f?'':''}</div>
+  </div>
+  <button class="btn btn-p" onclick="startScan()" ${nMatch===0?'disabled':''} style="white-space:nowrap">
+    Scan ${f?nMatch+' project'+(nMatch!==1?'s':''):allActive.length+' project'+(allActive.length!==1?'s':'')}
+  </button>
+</div>`;})():''}
+
 ${S.scanning?`<div class="scan-box">
-  <div class="ph"><span class="pt">Scanning all active projects via ACC Admin API…</span><span id="spct" class="pp">${S.pct}%</span></div>
+  <div class="ph"><span class="pt">Scanning${S.search.trim()?` projects matching "${esc(S.search.trim())}"`:' all active projects'} via ACC Admin API…</span><span id="spct" class="pp">${S.pct}%</span></div>
   <div class="ptrack"><div id="spfill" class="pfill" style="width:${S.pct}%"></div></div>
   <div class="prow">
     <div class="pmsg"><span class="spinner"></span><span id="smsg" class="lbl">${esc(S.msg)}</span></div>
@@ -2061,7 +2079,7 @@ ${S.scanning?`<div class="scan-box">
   <div style="margin-top:10px"><button class="btn btn-g btn-sm" onclick="S.aborted=true;S.scanning=false;render()">Stop scan</button></div>
 </div>`:''}
 
-<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:12px 15px;margin-bottom:12px;box-shadow:var(--shadow)">
+${S.projects.length>0||S.scanning?`<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:12px 15px;margin-bottom:12px;box-shadow:var(--shadow)">
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:9px">
     <div style="display:flex;align-items:center;gap:9px">
       <span style="font-size:14px;font-weight:700">${esc(S.hub.name)}</span>
@@ -2120,7 +2138,8 @@ ${S.groups.map((grp,gi)=>rGroup(grp,gi)).join("")}
   <span class="legend-item"><span class="vb v-risk" style="font-size:10px;padding:1px 7px">≤${S.threshold}</span> Critical</span>
   <span class="legend-item"><span class="type-pill tp-c4r">RCW</span> Workshared</span>
   <span class="legend-item"><span class="type-pill tp-cloud">RC</span> Not workshared</span>
-</div>`;
+</div>
+`:''/* end table guard */}`;
 }
 
 // ─── RENDER GROUP SECTION ───────────────────────────────────────────────────────
