@@ -9,20 +9,6 @@ This is a personal project and is not official Autodesk software. No warranty or
 
 ---
 
-## [1.6.0] — 2026-05-01
-
-### Changed — Filter then scan flow
-
-Selecting a hub now fetches the project list and pauses — no scan starts automatically. The dashboard shows:
-
-- **Filter by project name** input (left of threshold bar) — live count updates as you type
-- **Scan N projects** button — appears in a ready-state card below the threshold bar
-- Leave filter empty to scan all active projects; type a partial name to narrow the target
-
-Once scan starts, the dashboard behaves exactly as before. Results, metrics, and the project table only appear after scanning begins.
-
----
-
 ## [1.5.9] — 2026-05-01
 
 ### Changed — Project name filter moved into threshold bar
