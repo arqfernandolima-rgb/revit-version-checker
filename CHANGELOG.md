@@ -9,6 +9,28 @@ This is a personal project and is not official Autodesk software. No warranty or
 
 ---
 
+## [1.5.5] — 2026-05-01
+
+### Fixed — Counting precision + no-version visibility
+
+**Deduplication fix (root cause of multiple counting errors):** the `deriveProject()` deduplication previously treated a null version as `0`, so a null-version copy of a model would displace a versioned copy (e.g. 2022) as the representative in `uniqueC4RFiles`. This caused:
+- Projects with DC copies to be classified as "No Version" instead of their true version tier
+- Group header Outdated/Current badges to undercount
+- No-version counts to be inflated by files whose version IS known via another copy
+
+**Fix:** null version is now treated as `Infinity`. A versioned copy always beats an unresolved copy of the same model. Among versioned copies, the lowest version (worst case risk) is kept.
+
+**Group header counts reverted to `uniqueC4RFiles`:** safe now that the deduplication treats null correctly. Design Collaboration copies of the same model are no longer double-counted in the No Version badge.
+
+**Summary metric boxes now show file counts (not project counts):**
+- Outdated and Current boxes now show RCW file counts with a project count subtitle, consistent with the Critical box. All three boxes use `uniqueC4RFiles` (deduplicated unique models).
+
+**Hub-wide no-version file list:** a collapsible alert appears below the metric boxes whenever there are unresolved files. Lists every unresolved RCW model across the hub with project name, file name, and path — without requiring the user to expand each project row individually. Only visible after scanning completes.
+
+**Per-project amber box updated:** uses `uniqueC4RFiles` instead of `c4rFiles` — lists genuinely unresolved models, not DC copies whose version is known via another copy.
+
+---
+
 ## [1.5.4] — 2026-05-01
 
 ### Fixed — Group header outdated count was zero for mixed-version projects

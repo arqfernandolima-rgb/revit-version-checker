@@ -232,9 +232,9 @@ tr.risk-row:hover{background:rgba(220,38,38,0.05)}
 </div>
 <script>
 // ─── VERSION ──────────────────────────────────────────────────────────────────
-const VERSION='1.5.4';
+const VERSION='1.5.5';
 const RELEASE_DATE='2026-05-01';
-const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.5.4';
+const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.5.5';
 
 const APS='https://developer.api.autodesk.com';
 const OAUTH={
@@ -935,10 +935,11 @@ function deriveProject(p){
     if(!f.modelGuid){noGuidFiles.push(f);continue;}
     const existing=guidMap.get(f.modelGuid);
     if(!existing){guidMap.set(f.modelGuid,f);continue;}
-    // Keep the file with the lower (older) version — worst case for risk
-    const fv=f.version?parseInt(f.version):0;
-    const ev=existing.version?parseInt(existing.version):0;
-    if(fv<ev||(fv===0&&ev!==0))guidMap.set(f.modelGuid,f);
+    // Keep the lower (older) version — worst case for risk. Treat null as Infinity
+    // so a versioned copy always beats an unresolved copy of the same model.
+    const fv=f.version?parseInt(f.version):Infinity;
+    const ev=existing.version?parseInt(existing.version):Infinity;
+    if(fv<ev)guidMap.set(f.modelGuid,f);
   }
   p.uniqueC4RFiles=[...guidMap.values(),...noGuidFiles]; // deduplicated set
 
@@ -1926,9 +1927,14 @@ function rDash(){
   const totalCloud=S.projects.reduce((s,p)=>s+p.cloudCount,0);
   const atRiskTotal=S.projects.reduce((s,p)=>s+atRiskCount(p),0);
   const critProj=S.projects.filter(p=>pStatus(p)==='critical').length;
-  const warnCount=S.projects.filter(p=>pStatus(p)==='warn').length;
-  const currentCount=S.projects.filter(p=>pStatus(p)==='ok').length;
-  const noVersionCount=S.projects.filter(p=>pStatus(p)==='no-version').length;
+  // File-level counts (uniqueC4RFiles) — consistent with deduplication logic
+  const allUniqueC4R=S.projects.flatMap(p=>p.uniqueC4RFiles||[]);
+  const warnFileCount=allUniqueC4R.filter(f=>f.version&&parseInt(f.version)>S.threshold&&parseInt(f.version)<=S.threshold+2).length;
+  const okFileCount=allUniqueC4R.filter(f=>f.version&&parseInt(f.version)>=S.threshold+3).length;
+  const nvFileCount=allUniqueC4R.filter(f=>!f.version).length;
+  const warnProjCount=S.projects.filter(p=>(p.uniqueC4RFiles||[]).some(f=>f.version&&parseInt(f.version)>S.threshold&&parseInt(f.version)<=S.threshold+2)).length;
+  const okProjCount=S.projects.filter(p=>(p.uniqueC4RFiles||[]).some(f=>f.version&&parseInt(f.version)>=S.threshold+3)).length;
+  const nvProjCount=S.projects.filter(p=>(p.uniqueC4RFiles||[]).some(f=>!f.version)).length;
 
   const eta=fmtEta(S.eta);
 
@@ -1952,10 +1958,35 @@ ${atRiskTotal>0?`<div class="depr">
   <div class="metric"><div class="ml">Active projects</div><div class="mv">${S.projects.length}</div><div class="ms">${S.scanning?'scanning…':'in hub'}</div></div>
   <div class="metric"><div class="ml">Cloud Workshared</div><div class="mv">${totalC4R}</div><div class="ms">RCW models</div></div>
   <div class="metric"><div class="ml">Critical ≤${S.threshold}</div><div class="mv" style="color:${atRiskTotal>0?'var(--red)':'var(--hint)'}">${atRiskTotal}</div><div class="ms">${critProj} project${critProj!==1?'s':''}</div></div>
-  <div class="metric"><div class="ml">Outdated ${S.threshold+1}–${S.threshold+2}</div><div class="mv" style="color:${warnCount>0?'var(--amber)':'var(--hint)'}">${warnCount}</div><div class="ms">project${warnCount!==1?'s':''}</div></div>
-  <div class="metric"><div class="ml">Current ≥${S.threshold+3}</div><div class="mv" style="color:${currentCount>0?'var(--green)':'var(--hint)'}">${currentCount}</div><div class="ms">project${currentCount!==1?'s':''}</div></div>
+  <div class="metric"><div class="ml">Outdated ${S.threshold+1}–${S.threshold+2}</div><div class="mv" style="color:${warnFileCount>0?'var(--amber)':'var(--hint)'}">${warnFileCount}</div><div class="ms">${warnProjCount} project${warnProjCount!==1?'s':''}</div></div>
+  <div class="metric"><div class="ml">Current ≥${S.threshold+3}</div><div class="mv" style="color:${okFileCount>0?'var(--green)':'var(--hint)'}">${okFileCount}</div><div class="ms">${okProjCount} project${okProjCount!==1?'s':''}</div></div>
   <div class="metric"><div class="ml">Cloud Models</div><div class="mv" style="color:var(--hint)">${totalCloud}</div><div class="ms">non-workshared</div></div>
 </div>
+
+${nvFileCount>0&&!S.scanning?`<details style="margin-bottom:12px;background:var(--surface);border:1px solid rgba(180,83,9,0.35);border-radius:var(--rl);overflow:hidden;box-shadow:var(--shadow)">
+  <summary style="padding:9px 14px;cursor:pointer;font-size:12px;color:var(--amber);font-weight:600;display:flex;align-items:center;gap:7px;list-style:none;user-select:none">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" width="13" height="13" style="flex-shrink:0"><path d="M8 2.5L14 13.5H2L8 2.5z" stroke-linejoin="round"/><path d="M8 6.5v3.5M8 11.5v.5" stroke-linecap="round"/></svg>
+    ${nvFileCount} RCW file${nvFileCount!==1?'s':''} with no resolved version &nbsp;&middot;&nbsp; ${nvProjCount} project${nvProjCount!==1?'s':''} &nbsp;&mdash;&nbsp; <span style="font-weight:400;font-size:11px">click to see files</span>
+  </summary>
+  <div style="padding:0 14px 12px;border-top:1px solid rgba(180,83,9,0.15)">
+    <p style="font-size:11px;color:var(--muted);margin:8px 0 6px">All three automatic passes (DM API, MD manifest, binary header) returned no version for these models. Verify manually in ACC.</p>
+    <table style="width:100%;border-collapse:collapse;font-size:11px">
+      <thead><tr style="color:var(--hint);font-size:10px;text-transform:uppercase">
+        <td style="padding:0 10px 4px 0;width:28%">Project</td>
+        <td style="padding:0 10px 4px 0;width:30%">File</td>
+        <td style="padding:0 0 4px">Path</td>
+      </tr></thead>
+      <tbody>
+        ${S.projects.flatMap(p=>(p.uniqueC4RFiles||[]).filter(f=>!f.version).map(f=>`<tr style="border-top:1px solid var(--border)">
+          <td style="padding:3px 10px 3px 0;color:var(--muted)">${esc(p.name)}</td>
+          <td style="padding:3px 10px 3px 0;font-weight:500">${esc(f.name)}</td>
+          <td style="padding:3px 0;color:var(--hint)">${esc(f.path||'—')}</td>
+        </tr>`)).join('')}
+      </tbody>
+    </table>
+  </div>
+</details>`:''}
+
 
 <div class="threshold-bar">
   <span class="tbar-label">Critical threshold:</span>
@@ -2060,10 +2091,10 @@ function rGroup(grp,gi){
     else{av=0;bv=0;}
     return av<bv?-S.sortDir:av>bv?S.sortDir:0;
   });
-  // File-level counts across all projects in this group.
-  // Use c4rFiles (all copies) not uniqueC4RFiles — deduplication can displace versioned
-  // copies with null-version copies, making outdated files invisible to the group header.
-  const gAllFiles=gProjects.flatMap(p=>p.c4rFiles||[]);
+  // File-level counts across all projects in this group (unique models, not copies).
+  // Deduplication now treats null as Infinity so versioned copies always win over
+  // unresolved copies — uniqueC4RFiles is safe to use for all tier counts here.
+  const gAllFiles=gProjects.flatMap(p=>p.uniqueC4RFiles||[]);
   const gc=gAllFiles.filter(f=>f.version&&parseInt(f.version)<=S.threshold).length;
   const gw=gAllFiles.filter(f=>f.version&&parseInt(f.version)>S.threshold&&parseInt(f.version)<=S.threshold+2).length;
   const go=gAllFiles.filter(f=>f.version&&parseInt(f.version)>=S.threshold+3).length;
@@ -2236,7 +2267,7 @@ function rRow(p){
         <strong>${dsResolved.length} file${dsResolved.length!==1?'s':''} resolved via binary file header.</strong> Revit version was read directly from the <code style="background:rgba(34,197,94,0.1);padding:1px 4px;border-radius:3px;font-size:10px">BasicFileInfo</code> stream in the .rvt file.
       </div>`;
     }
-    const noVersionFiles=(p.c4rFiles||[]).filter(f=>!f.version);
+    const noVersionFiles=(p.uniqueC4RFiles||[]).filter(f=>!f.version);
     if(noVersionFiles.length>0){
       html+=`<div style="margin:8px 0 4px;padding:8px 11px;background:rgba(180,83,9,0.06);border:1px dashed rgba(180,83,9,0.3);border-radius:5px;font-size:11px;color:var(--amber)">
         <strong>${noVersionFiles.length} RCW file${noVersionFiles.length!==1?'s':''} with no version — verify manually in ACC.</strong> All automatic passes returned no version for these files.
