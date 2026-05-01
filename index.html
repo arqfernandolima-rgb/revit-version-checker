@@ -1007,8 +1007,8 @@ function _yearFromManifest(mf,logFull){
 }
 
 async function manifestScan(proj){
-  const unresolved=[...(proj.c4rFiles||[]),...(proj.cloudFiles||[])]
-    .filter(f=>f.versionUrn&&(f.version===null||f.inferredVersion));
+  const unresolved=(proj.c4rFiles||[])
+    .filter(f=>f.versionUrn&&f.version===null);
   if(!unresolved.length)return;
   proj.p3total=unresolved.length;
   proj.p3done=0;
