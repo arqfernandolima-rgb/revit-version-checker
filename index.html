@@ -232,9 +232,9 @@ tr.risk-row:hover{background:rgba(220,38,38,0.05)}
 </div>
 <script>
 // ─── VERSION ──────────────────────────────────────────────────────────────────
-const VERSION='1.5.8';
+const VERSION='1.5.9';
 const RELEASE_DATE='2026-05-01';
-const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.5.8';
+const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.5.9';
 
 const APS='https://developer.api.autodesk.com';
 const OAUTH={
@@ -1116,12 +1116,12 @@ async function binaryScan(proj){
 
 // ─── HUB SCAN ─────────────────────────────────────────────────────────────────
 async function loadHubProjects(hub){
-  S.hub=hub;S.allAdminProjects=[];S.projectFilter='';S.error=null;
+  S.hub=hub;S.allAdminProjects=[];S.error=null;
   S.phase='projects';render();
   const accountId=hub.id.replace(/^b\./,'');
   try{S.allAdminProjects=await getAllAdminProjects(accountId);}
   catch(e){S.error=e.message;S.phase='hubs';render();return;}
-  render();
+  startScan();
 }
 
 async function startScan(){
@@ -1132,10 +1132,8 @@ async function startScan(){
   RateLimit.reset();
   render();
 
-  const f=S.projectFilter.trim().toLowerCase();
   const _dbgProject=new URLSearchParams(location.search).get('project');
   const active=S.allAdminProjects.filter(p=>p.status==='active'&&
-    (!f||p.name?.toLowerCase().includes(f))&&
     (!_dbgProject||p.name?.toLowerCase().includes(_dbgProject.toLowerCase())));
   if(_dbgProject)console.warn(`[DEBUG] project filter "${_dbgProject}" → ${active.length} match(es):`,active.map(p=>p.name));
 
@@ -1344,7 +1342,7 @@ function toggleFilter(st){if(S.statusFilters.has(st))S.statusFilters.delete(st);
 function clearFilters(){S.statusFilters.clear();S.filterOpen=false;render();}
 function setThresh(y){S.threshold=y;localStorage.setItem('rvt_thresh',y);render();}
 function toggleX(id){if(S.expanded.has(id))S.expanded.delete(id);else S.expanded.add(id);render();}
-function navTo(p){S.phase=(p==='scan')?(S.hub?(S.projects.length?'dash':'projects'):'setup'):p;render();}
+function navTo(p){S.phase=(p==='scan')?(S.hub?'dash':'setup'):p;render();}
 
 // ─── CSV EXPORT ───────────────────────────────────────────────────────────────
 function exportCsv(groupIdx){
@@ -2039,14 +2037,17 @@ ${nvFileCount>0&&!S.scanning?`<details style="margin-bottom:12px;background:var(
 
 
 <div class="threshold-bar">
-  <span class="tbar-label">Critical threshold:</span>
-  <div class="tbar-btns">
-    <button class="tbar-btn${S.threshold===2021?' sel':''}" onclick="setThresh(2021)">≤ 2021</button>
-    <button class="tbar-btn${S.threshold===2022?' sel':''}" onclick="setThresh(2022)">≤ 2022</button>
+  <div class="sw" style="flex:1;max-width:320px">
+    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M11.7 10.3a6.5 6.5 0 10-1.4 1.4l3.85 3.85a1 1 0 001.4-1.4l-3.85-3.85zM6.5 11a4.5 4.5 0 110-9 4.5 4.5 0 010 9z"/></svg>
+    <input class="sinput" placeholder="Filter by project name" value="${esc(S.search)}" oninput="S.search=this.value;render()"/>
   </div>
-  <span style="font-size:11px;color:var(--hint)">
-    Critical ≤${S.threshold} &nbsp;·&nbsp; Outdated ${S.threshold+1}–${S.threshold+2} &nbsp;·&nbsp; Current ≥${S.threshold+3}
-  </span>
+  <div style="display:flex;align-items:center;gap:10px;margin-left:auto">
+    <span class="tbar-label">Critical threshold:</span>
+    <div class="tbar-btns">
+      <button class="tbar-btn${S.threshold===2021?' sel':''}" onclick="setThresh(2021)">≤ 2021</button>
+      <button class="tbar-btn${S.threshold===2022?' sel':''}" onclick="setThresh(2022)">≤ 2022</button>
+    </div>
+  </div>
 </div>
 
 ${S.scanning?`<div class="scan-box">
@@ -2067,10 +2068,6 @@ ${S.scanning?`<div class="scan-box">
       <span class="cbadge">${S.projects.length} projects · ${S.groups.length} group${S.groups.length!==1?"s":""}</span>
     </div>
     <div class="tcontrols">
-      <div class="sw">
-        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M11.7 10.3a6.5 6.5 0 10-1.4 1.4l3.85 3.85a1 1 0 001.4-1.4l-3.85-3.85zM6.5 11a4.5 4.5 0 110-9 4.5 4.5 0 010 9z"/></svg>
-        <input class="sinput" placeholder="Search projects…" value="${esc(S.search)}" oninput="S.search=this.value;render()"/>
-      </div>
       <div class="filter-dd" id="filter-dd">
         ${(()=>{
           const opts=[
@@ -2452,16 +2449,15 @@ function render(){
   }else sc.innerHTML='';
   ['scan','about'].forEach(k=>{
     const el=document.getElementById('nav-'+k);
-    if(el)el.className='ni'+((k==='scan'&&['setup','hubs','projects','dash'].includes(S.phase))||(k===S.phase)?' active':'');
+    if(el)el.className='ni'+((k==='scan'&&['setup','hubs','dash'].includes(S.phase))||(k===S.phase)?' active':'');
   });
   const mc=document.getElementById('mc');
   let html='';
   if(S.error)html+=`<div class="alert a-err"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm-.75 4h1.5v5h-1.5V5zm0 6h1.5v1.5h-1.5V11z"/></svg><span>${esc(S.error)} <button class="btn btn-g btn-sm" style="margin-left:8px" onclick="S.error=null;render()">Dismiss</button></span></div>`;
-  if     (S.phase==='setup')   html+=rSetup();
-  else if(S.phase==='hubs')    html+=rHubs();
-  else if(S.phase==='projects')html+=rProjects();
-  else if(S.phase==='dash')    html+=rDash();
-  else if(S.phase==='about')   html+=rAbout();
+  if     (S.phase==='setup')html+=rSetup();
+  else if(S.phase==='hubs') html+=rHubs();
+  else if(S.phase==='dash') html+=rDash();
+  else if(S.phase==='about')html+=rAbout();
   mc.innerHTML=html;
   bind();
 }
@@ -2498,9 +2494,6 @@ function bind(){
     S.token='';S.uname='';S.authMode='3-legged';S.clientSecret='';S.tokenExpired=false;S.refreshToken=null;S.tokenIssuedAt=null;
     S.hub=null;S.projects=[];S.phase='setup';S.error=null;render();
   };
-  // Restore focus to project filter input after re-render so typing continues uninterrupted
-  const pfi=document.getElementById('pf-input');
-  if(pfi){const v=pfi.value;pfi.focus();pfi.setSelectionRange(v.length,v.length);}
   // Close filter dropdown on any outside click
   // Inner elements call event.stopPropagation() so this only fires for outside clicks
   document.onclick=()=>{
