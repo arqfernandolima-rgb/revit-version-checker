@@ -232,9 +232,9 @@ tr.risk-row:hover{background:rgba(220,38,38,0.05)}
 </div>
 <script>
 // ─── VERSION ──────────────────────────────────────────────────────────────────
-const VERSION='1.5.5';
+const VERSION='1.5.6';
 const RELEASE_DATE='2026-05-01';
-const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.5.5';
+const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.5.6';
 
 const APS='https://developer.api.autodesk.com';
 const OAUTH={
@@ -826,7 +826,7 @@ async function scanProject(proj,hub){
     ||/^vf\.[A-Za-z0-9_-]{10,}\.rvt$/.test(name)
     ||/^[0-9a-f]{20,}\.rvt$/i.test(name);
 
-  while(queue.length>0&&!S.aborted){
+  while(queue.length>0&&!S.aborted&&!proj._timeout){
     if(++foldersSinceYield>=CONCURRENCY.YIELD_EVERY){
       foldersSinceYield=0;
       await new Promise(res=>setTimeout(res,0));
@@ -878,7 +878,7 @@ async function scanProject(proj,hub){
   // at item level even when Cloud Workshared. Version response is authoritative.
 
   await pool(allRvtItems.map(({item,path:pathLabel})=>async()=>{
-    if(S.aborted)return;
+    if(S.aborted||proj._timeout)return;
     const name=item.attributes?.displayName||item.attributes?.name||'';
 
     // Route system-generated filenames to systemFiles — not counted toward risk
@@ -1171,7 +1171,7 @@ async function scanHub(hub){
     renderProgress();
   },600);
 
-  const PROJECT_TIMEOUT=300000;
+  const PROJECT_TIMEOUT=600000; // 10 minutes — soft stop, not hard kill
   // Concurrency: 4 parallel for 2-legged (higher APS limits), 3 for 3-legged
   const projConcurrency=S.authMode==='2-legged'?4:3;
 
@@ -1201,12 +1201,18 @@ async function scanHub(hub){
       render(); // flip row from Queued → Scanning immediately
 
       proj.scanStart=Date.now();
-      let _th;
-      const timeout=new Promise(res=>{_th=setTimeout(()=>{
-        proj.scanError='Timed out after 5 minutes — project may be very large or the API is unresponsive';res();
-      },PROJECT_TIMEOUT);});
-      await Promise.race([scanProject(proj,hub),timeout]);
-      clearTimeout(_th); // cancel stale timer — prevents it firing after scan already completed
+      proj._timeout=false;
+      // Soft-stop timeout: sets a flag that drains the BFS queue (no new folders added)
+      // and stops version fetches, then lets scanProject() return naturally so
+      // deriveProject() always runs on the COMPLETE set of files found so far.
+      // This avoids the race condition where Promise.race left scanProject() running
+      // in the background and deriveProject() was called on empty/partial c4rFiles.
+      const _th=setTimeout(()=>{
+        proj._timeout=true;
+        proj.scanError=`Scan stopped after ${Math.round(PROJECT_TIMEOUT/60000)} min — project has many folders. Results include all files found before cutoff.`;
+      },PROJECT_TIMEOUT);
+      await scanProject(proj,hub);
+      clearTimeout(_th);
       proj.scanTime=parseFloat(((Date.now()-proj.scanStart)/1000).toFixed(1));
 
       deriveProject(proj);

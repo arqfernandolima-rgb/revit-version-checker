@@ -9,6 +9,27 @@ This is a personal project and is not official Autodesk software. No warranty or
 
 ---
 
+## [1.5.6] — 2026-05-01
+
+### Fixed — Large project scan timeout race condition
+
+**Root cause (ACC-TS-Campbell-Demo and similar large projects):**
+
+The previous timeout used `Promise.race([scanProject(), timeout])`. When the timeout won, the outer thread moved on to `deriveProject(proj)` — but `scanProject()` was still running in the background, continuing to push files into `proj.c4rFiles`. The `deriveProject()` call therefore ran on an empty or partial `c4rFiles`, producing `uniqueC4RFiles=[]` and `c4rCount=0`. Shortly after, the background scan deposited C4R files into `c4rFiles`, making `pStatus` read `'no-version'` (c4rFiles non-empty, c4rVersion null) while the expand button and RCW file count both showed nothing (c4rCount=0).
+
+**Fix: soft-stop timeout replacing `Promise.race`:**
+
+- Timeout now sets a per-project `proj._timeout=true` flag instead of resolving a race
+- The BFS `while` loop condition includes `&&!proj._timeout` — the moment the flag is set, no new folders are added to the queue; the current batch completes normally
+- Pass 2 version fetches check `proj._timeout` and skip remaining calls, preserving all data already collected
+- `scanProject()` then returns naturally — `deriveProject()` always runs on the full, consistent `c4rFiles` array
+
+**Timeout extended from 5 min to 10 min** — gives large hubs with deeply nested folder structures more runway before the soft stop kicks in.
+
+**Result:** Projects like ACC-TS-Campbell-Demo now correctly show their RCW file count and the expand row with all files found before the cutoff. The scan error message is preserved in the expanded row so the user knows the scan stopped early.
+
+---
+
 ## [1.5.5] — 2026-05-01
 
 ### Fixed — Counting precision + no-version visibility
