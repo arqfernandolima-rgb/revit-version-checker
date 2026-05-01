@@ -9,6 +9,15 @@ This is a personal project and is not official Autodesk software. No warranty or
 
 ---
 
+## [1.5.4] — 2026-05-01
+
+### Fixed — Group header outdated count was zero for mixed-version projects
+
+- **Root cause:** group header file counts used `uniqueC4RFiles` (deduplicated by model GUID). The deduplication logic picks the copy with the lowest version, treating `null` as `0`. When a model had one copy with `version=null` and another with `version=2022`, the null-version copy replaced the versioned one in `uniqueC4RFiles`. The group header's filters (`f.version && ...`) then saw only the null copy and counted it as "No Version" instead of "Outdated" — causing the outdated badge to show 0 even with visible outdated files in the expanded row.
+- **Fix:** group header now aggregates `c4rFiles` (all copies, including Design Collaboration duplicates) rather than `uniqueC4RFiles`. This matches what the expanded project row shows and ensures every versioned copy contributes to the correct tier bucket.
+
+---
+
 ## [1.5.3] — 2026-05-01
 
 ### Fixed — Group header counts now reflect file totals, not project totals

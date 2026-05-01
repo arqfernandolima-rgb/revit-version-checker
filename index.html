@@ -232,9 +232,9 @@ tr.risk-row:hover{background:rgba(220,38,38,0.05)}
 </div>
 <script>
 // ─── VERSION ──────────────────────────────────────────────────────────────────
-const VERSION='1.5.3';
+const VERSION='1.5.4';
 const RELEASE_DATE='2026-05-01';
-const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.5.3';
+const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.5.4';
 
 const APS='https://developer.api.autodesk.com';
 const OAUTH={
@@ -2060,9 +2060,10 @@ function rGroup(grp,gi){
     else{av=0;bv=0;}
     return av<bv?-S.sortDir:av>bv?S.sortDir:0;
   });
-  // File-level counts across all projects in this group (unique models, not copies).
-  // Mixed projects contribute their individual files to the appropriate tier bucket.
-  const gAllFiles=gProjects.flatMap(p=>p.uniqueC4RFiles||[]);
+  // File-level counts across all projects in this group.
+  // Use c4rFiles (all copies) not uniqueC4RFiles — deduplication can displace versioned
+  // copies with null-version copies, making outdated files invisible to the group header.
+  const gAllFiles=gProjects.flatMap(p=>p.c4rFiles||[]);
   const gc=gAllFiles.filter(f=>f.version&&parseInt(f.version)<=S.threshold).length;
   const gw=gAllFiles.filter(f=>f.version&&parseInt(f.version)>S.threshold&&parseInt(f.version)<=S.threshold+2).length;
   const go=gAllFiles.filter(f=>f.version&&parseInt(f.version)>=S.threshold+3).length;
