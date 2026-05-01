@@ -232,9 +232,9 @@ tr.risk-row:hover{background:rgba(220,38,38,0.05)}
 </div>
 <script>
 // ─── VERSION ──────────────────────────────────────────────────────────────────
-const VERSION='1.5.6';
+const VERSION='1.5.7';
 const RELEASE_DATE='2026-05-01';
-const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.5.6';
+const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.5.7';
 
 const APS='https://developer.api.autodesk.com';
 const OAUTH={
@@ -812,9 +812,8 @@ async function scanProject(proj,hub){
   // so priority order is maintained across parallel fetches.
   // JS is single-threaded: syncronous post-await loops within each batch item
   // execute atomically, so visitedFolders updates are race-free.
-  // Items with hidden:true are ACC system/derivative artifacts not visible in the UI
+  // hidden:true is NOT filtered — DC consumed/managed files carry hidden=true but are real user models
   const isRvt=i=>{
-    if(i.attributes?.hidden)return false;
     const name=i.attributes?.displayName||i.attributes?.name||'';
     return(i.type==='items'||i.type==='documents')&&name.toLowerCase().endsWith('.rvt');
   };
@@ -870,6 +869,7 @@ async function scanProject(proj,hub){
   if(S.aborted)return;
 
   // No .rvt files found anywhere — project is No RCW, done immediately
+  console.log(`[Scan] ${proj.name} — BFS done: ${allRvtItems.length} .rvt items found`);
   if(allRvtItems.length===0)return;
 
   // ── PASS 2: Version calls — authoritative C4R detection ────────────────────
@@ -918,6 +918,7 @@ async function scanProject(proj,hub){
     const f={id:item.id,name,path:pathLabel,version,isC4R,modTime,modBy,modelGuid,versionUrn,storageUrn};
     if(isC4R)proj.c4rFiles.push(f);else proj.cloudFiles.push(f);
   }),CONCURRENCY.VERSION_FETCHES);
+  console.log(`[Scan] ${proj.name} — Pass 2 done: ${proj.c4rFiles.length} RCW, ${proj.cloudFiles.length} cloud, ${(proj.failedFiles||[]).length} failed, ${(proj.systemFiles||[]).length} system`);
 }
 
 function deriveProject(p){
@@ -1126,7 +1127,10 @@ async function scanHub(hub){
   try{adminProjects=await getAllAdminProjects(accountId);}
   catch(e){S.error=e.message;S.scanning=false;render();return;}
 
-  const active=adminProjects.filter(p=>p.status==='active');
+  const _dbgProject=new URLSearchParams(location.search).get('project');
+  const active=adminProjects.filter(p=>p.status==='active'&&
+    (!_dbgProject||p.name?.toLowerCase().includes(_dbgProject.toLowerCase())));
+  if(_dbgProject)console.warn(`[DEBUG] project filter "${_dbgProject}" → ${active.length} match(es):`,active.map(p=>p.name));
 
   // For 2-legged (app token): skip member pre-filter entirely — the app has hub-wide
   // folder access regardless of project membership, which is the whole point of 2-legged.
@@ -2176,7 +2180,7 @@ function rRow(p){
     pending:    `<span class="chip chip-pending">Queued</span>`,
     scanning:   `<span class="chip chip-scan"><span class="spinner" style="width:9px;height:9px;margin-right:3px"></span>Scanning</span>`
   };
-  const hasFiles=p.c4rCount>0||p.cloudCount>0;
+  const hasFiles=p.c4rCount>0||p.cloudCount>0||(p.failedFiles?.length||0)>0||(p.systemFiles?.length||0)>0;
   let html=`<tr class="${isRisk?'risk-row':''}">
     <td style="padding-left:10px">${hasFiles?`<button class="xbtn${isExp?' open':''}" onclick="toggleX('${p.id}')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg></button>`:''}</td>
     <td><div class="pname" title="${esc(p.name)}">${esc(p.name)}</div>${isMixed?`<div class="psub" style="color:var(--amber)">Multiple workshared versions — expand to inspect</div>`:''}</td>

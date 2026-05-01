@@ -9,6 +9,22 @@ This is a personal project and is not official Autodesk software. No warranty or
 
 ---
 
+## [1.5.7] — 2026-05-01
+
+### Fixed — Design Collaboration consumed files hidden from scan
+
+**Root cause (ACC-TS-Campbell-Demo "No RCW" with all dashes):**
+
+The `isRvt` filter previously rejected any item with `attributes.hidden=true`. Design Collaboration (DC) "Consumed" and managed model files carry `hidden=true` in the APS Data Management API response even though they are real, user-facing Revit files. This silently removed all DC-managed `.rvt` items before they reached Pass 2, leaving `allRvtItems=[]` and the project showing "No RCW" with all columns at `—`.
+
+**Fixes:**
+
+- Removed `if(i.attributes?.hidden) return false` from `isRvt`. The `isSystemName` filter already handles UUID-named system artifacts; the hidden flag is not a reliable indicator of a non-user file.
+- `hasFiles` now includes `failedFiles` and `systemFiles` in the expand-button condition — so if all version calls fail or only system files are found, the expand row is still shown for debugging.
+- Added console logging after BFS (`allRvtItems` count) and after Pass 2 (RCW / cloud / failed / system counts) for future diagnosis.
+
+---
+
 ## [1.5.6] — 2026-05-01
 
 ### Fixed — Large project scan timeout race condition
