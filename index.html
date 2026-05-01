@@ -232,9 +232,9 @@ tr.risk-row:hover{background:rgba(220,38,38,0.05)}
 </div>
 <script>
 // ─── VERSION ──────────────────────────────────────────────────────────────────
-const VERSION='1.5.0';
+const VERSION='1.5.1';
 const RELEASE_DATE='2026-05-01';
-const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.5.0';
+const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.5.1';
 
 const APS='https://developer.api.autodesk.com';
 const OAUTH={
@@ -1480,17 +1480,18 @@ async function exportPdf(groupIdx){
     startY+=bannerH+4;
   }
 
-  // ── Accuracy statement ────────────────────────────────────────────────────
+  // ── Version ID rate statement ─────────────────────────────────────────────
   {
     const scannedProjects=srcProjs.filter(p=>!p.noAccess&&!p.pending&&pStatus(p)!=='scanning');
-    const totalRvt=scannedProjects.reduce((s,p)=>(p.c4rFiles?.length||0)+(p.cloudFiles?.length||0)+(p.failedFiles?.length||0)+s,0);
-    const classifiedRvt=scannedProjects.reduce((s,p)=>(p.c4rFiles?.length||0)+(p.cloudFiles?.length||0)+s,0);
+    const totalC4r=scannedProjects.reduce((s,p)=>(p.c4rFiles?.length||0)+s,0);
+    const resolvedC4r=scannedProjects.reduce((s,p)=>(p.c4rFiles||[]).filter(f=>f.version).length+s,0);
+    const missedC4r=totalC4r-resolvedC4r;
     const failedRvt=scannedProjects.reduce((s,p)=>(p.failedFiles?.length||0)+s,0);
     const systemFileTotal=scannedProjects.reduce((s,p)=>(p.systemFiles?.length||0)+s,0);
     const copyTotal=scannedProjects.reduce((s,p)=>(p.c4rCopyCount||0)+s,0);
     const skippedFolderTotal=scannedProjects.reduce((s,p)=>(p.skippedFolders||0)+s,0);
     const noAccessCount=srcProjs.filter(p=>p.noAccess).length;
-    const fileAccuracyPct=totalRvt>0?Math.round((classifiedRvt/totalRvt)*100):100;
+    const versionIdPct=totalC4r>0?Math.round((resolvedC4r/totalC4r)*100):100;
     const caveatParts=[];
     if(copyTotal>0)caveatParts.push(`${copyTotal} RCW file cop${copyTotal!==1?'ies are':'y is'} excluded from risk counts (Design Collaboration copies sharing a model ID with a working copy).`);
     if(systemFileTotal>0)caveatParts.push(`${systemFileTotal} system/auto-named file${systemFileTotal!==1?'s were':' was'} excluded (hidden ACC items or GUID-named files).`);
@@ -1498,7 +1499,9 @@ async function exportPdf(groupIdx){
     if(skippedFolderTotal>0)caveatParts.push(`${skippedFolderTotal} folder${skippedFolderTotal!==1?'s were':' was'} inaccessible (403) — contents unknown, not reflected in counts.`);
     if(noAccessCount>0)caveatParts.push(`${noAccessCount} project${noAccessCount!==1?'s':''} had no file access and may contain RCW files.`);
     caveatParts.push('Community tool — not an official Autodesk audit. v'+VERSION);
-    const accLine=totalRvt>0?`Scan accuracy: ${fileAccuracyPct}%  |  ${classifiedRvt} of ${totalRvt} .rvt files successfully classified.`:'No .rvt files found in scanned projects.';
+    const accLine=totalC4r>0
+      ?`RCW version ID rate: ${versionIdPct}%  |  ${resolvedC4r} of ${totalC4r} workshared files identified  |  ${missedC4r} unresolved`
+      :'No Revit Cloud Workshared files found in scanned projects.';
     const accH=7+(caveatParts.length*4)+4;
     doc.setFillColor(...PDF_C.bgStrip);doc.setDrawColor(...PDF_C.greyLine);
     doc.roundedRect(ML,startY,TW,accH,2,2,'FD');
@@ -2333,11 +2336,11 @@ function rAbout(){
         <span style="font-size:12px;color:var(--hint)">${RELEASE_DATE}</span>
         <a href="${CHANGELOG_URL}" target="_blank" style="font-size:12px;color:var(--blue);text-decoration:none;font-weight:600">Release notes →</a>
       </div>
-      <p style="font-size:12px;color:var(--hint);line-height:1.7">Versioning follows semantic versioning (MAJOR.MINOR.PATCH). v1.0.0 will be tagged once scanning accuracy is confirmed in production against large hubs.</p>
+      <p style="font-size:12px;color:var(--hint);line-height:1.7">Versioning follows semantic versioning (MAJOR.MINOR.PATCH).</p>
     </div>
     <div class="card">
       <div style="font-size:13px;font-weight:700;margin-bottom:8px">Built by</div>
-      <p style="font-size:13px;color:var(--muted);line-height:1.8"><strong style="color:var(--text)">Fernando Lima</strong> — Sr. Technical Specialist at Autodesk. Built on original work by <strong style="color:var(--text)">Tanmay Bhalerao</strong> — Senior Account Technical Lead at Autodesk, who contributed Admin API integration, 2-legged auth, PDF export, group scanning, rate limiting, and accuracy tracking.</p>
+      <p style="font-size:13px;color:var(--muted);line-height:1.8"><strong style="color:var(--text)">Fernando Lima</strong> — Sr. Technical Specialist at Autodesk. Built on original work by <strong style="color:var(--text)">Tanmay Bhalerao</strong> — Senior Account Technical Lead at Autodesk, who contributed Admin API integration, 2-legged auth, PDF export, group scanning, and rate limiting.</p>
       <p style="font-size:11px;color:var(--hint);line-height:1.6;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">⚠ This is a personal project and is not official Autodesk software. It is provided as-is with no warranty or liability from Autodesk.</p>
     </div>
   </div>`;

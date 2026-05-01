@@ -9,6 +9,17 @@ This is a personal project and is not official Autodesk software. No warranty or
 
 ---
 
+## [1.5.1] — 2026-05-01
+
+### Changed — PDF metric renamed and corrected
+
+- **RCW version ID rate** replaces "Scan accuracy" in the PDF footer. The old metric measured version API call success (all classified `.rvt` files / total `.rvt` files) and always showed 100% when no API calls failed — even when many RCW files had unknown versions. The new metric is: `resolved C4R versions / total C4R files × 100`, clearly showing how many workshared files got a version identified across all three passes.
+- PDF footer line now reads: `RCW version ID rate: N%  |  N of N workshared files identified  |  N unresolved`
+- **No Version badge** added to group header summary alongside Critical / Outdated / Current, so unresolved projects are visible at a glance without expanding the group.
+- **No-version file list** in expanded project row: replaced the vague "Revit year could not be determined" banner with a named file + path table for all unresolved RCW files, making manual ACC follow-up straightforward.
+
+---
+
 ## [1.5.0] — 2026-05-01
 
 ### Changed — Fully automatic three-pass detection, no inference
