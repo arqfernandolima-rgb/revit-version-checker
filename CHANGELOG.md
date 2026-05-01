@@ -9,6 +9,43 @@ This is a personal project and is not official Autodesk software. No warranty or
 
 ---
 
+## [1.6.2] — 2026-05-01
+
+### Added — New scan / reset flow + filter clear button
+
+Completes the filter-then-scan UX:
+
+- **× clear button** appears inside the filter input whenever text is present — one click resets the filter without clearing other state
+- **"New scan" button** appears in the threshold bar after a scan completes — resets all projects back to Queued instantly using cached admin project list and member data (no API re-fetch)
+- **"Stop & new scan" button** appears alongside "Stop scan" during scanning — aborts the current scan and resets to Queued in a single click
+- `resetScan()` uses `S.allAdminProjects` + `S._memberIds` / `S._hasMemberList` stored at hub load time — reset is immediate regardless of hub size
+- `S.search` is cleared on reset so the filter input starts fresh
+
+---
+
+## [1.6.1] — 2026-05-01
+
+### Fixed — Group header removed for small scans; scan button left; filter typing
+
+- **No group accordion for ≤ 100 projects:** when `S.groups.length === 1`, `rGroup()` skips the group header and renders a flat project table directly — cleaner for targeted scans
+- **Threshold bar reordered:** `[Scan N projects]` → `[🔍 filter input]` → `[Critical threshold]`
+- **Filter input typing fixed:** `id="sinput"` added; `bind()` restores focus and cursor position after every re-render triggered by `oninput`, so typing is uninterrupted
+
+---
+
+## [1.6.0] — 2026-05-01
+
+### Added — Load project names first, user-initiated scan
+
+Hub selection now loads all project names immediately without starting file scanning:
+
+- `loadHubProjects(hub)` fetches the admin project list and member IDs, then populates `S.projects` with all active projects in **Queued** state — displayed immediately in the table
+- `startScan()` applies the name filter from `S.search` before scanning — non-matching projects are removed from `S.projects`; only matched projects are scanned
+- **"Scan N projects"** button in the threshold bar replaces the automatic scan trigger — count reflects the active filter live
+- `buildProjectList()` extracted as a shared helper used by both `loadHubProjects` and `resetScan`
+
+---
+
 ## [1.5.9] — 2026-05-01
 
 ### Changed — Project name filter moved into threshold bar

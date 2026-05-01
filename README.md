@@ -1,6 +1,6 @@
 # Revit Version Checker
 
-[![Version](https://img.shields.io/badge/version-1.6.0-blue)](https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.6.0)
+[![Version](https://img.shields.io/badge/version-1.6.2-blue)](https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.6.2)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 **Scan every project in an Autodesk Forma / ACC hub for Revit cloud worksharing deprecation risk — no server required.**
@@ -28,12 +28,17 @@ Finding affected projects manually — hub by hub, project by project — is imp
 | Full hub coverage | ACC Admin API lists all active projects regardless of personal membership |
 | Two auth modes | 3-legged PKCE OAuth (standard) or 2-legged Client Secret (full hub access, session only) |
 | RCW vs RC | Correctly separates Cloud Workshared (version-locked, at risk) from plain cloud uploads (not affected) |
+| DC consumed files | Design Collaboration consumed/managed files (hidden in the API) are correctly detected and classified |
 | Smart folder skipping | 35+ known non-RVT folder names skipped at any depth (Plans, Photos, Archive, Specs, etc.) — no API calls wasted |
 | Depth limit | BFS capped at depth 4 — matches deepest real-world ACC layout; eliminates timeout on deep/demo projects |
 | Priority-first scan | Project Files and discipline folders scan before archive/admin folders — results appear fast |
 | Parallel folder fetches | 3 folder content calls per project in parallel — 2–3× faster folder walk |
-| Project groups | Hub split into groups of 100; groups scan sequentially; results appear progressively; exportable per group |
+| Project name filter | Type a partial name before scanning to target specific projects; live count updates; × to clear |
+| Selective scanning | Only filtered projects are scanned — skip irrelevant projects to save time on large hubs |
+| New scan / reset | After a scan completes, reset back to all-Queued instantly (no API re-fetch) to scan a different subset |
+| Project groups | Hub split into groups of 100; groups scan sequentially; results appear progressively; exportable per group. Groups hidden when ≤ 100 projects — flat table instead |
 | Parallel scanning | 3–4 projects in parallel within each group; 8 version fetches per project |
+| Soft-stop timeout | 10-minute per-project timeout drains the BFS queue gracefully — results already found are preserved |
 | Proactive rate limiting | Token bucket refills at a steady rate (100/min 3-legged, 180/min 2-legged); waits are spread evenly — no burst/stall cycles |
 | Token auto-refresh | Silently refreshes between groups — scans survive past the 1-hour token expiry |
 | Per-request timeout | 30s AbortController on every fetch; hung connections abort and retry rather than stalling |
@@ -175,24 +180,34 @@ Enable API products for both: **Data Management**, **ACC Hub Administrator**
 
 **3-legged:**
 1. Paste Client ID → **Sign in with Autodesk**
-2. Autodesk login page → authenticate with an Hub Admin account
-3. Select hub → scanning begins
+2. Autodesk login page → authenticate with a Hub Admin account
+3. Select hub → all project names load as **Queued**
+4. Optionally type a name filter (e.g. "Denver") to target specific projects
+5. Click **Scan N projects** → only matched projects are scanned
+6. After scan: click **New scan** to reset and scan a different subset
 
 **2-legged:**
 1. Paste Client ID and Client Secret into the setup fields
 2. Click **Connect with Client Secret** → immediate, no login page
-3. Select hub → scanning begins
+3. Select hub → all project names load as **Queued**
+4. Optionally filter by name, then click **Scan N projects**
 
 ---
 
 ## How the scan works
 
-Projects are split into **groups of 100** and scanned sequentially. Within each group, 3–4 projects run in parallel. Results appear group by group so you can export Group 1 while Group 2 is scanning.
+Selecting a hub loads all project names immediately (no file scanning yet). You can filter by name before starting. Projects are split into **groups of 100** and scanned sequentially. Within each group, 3–4 projects run in parallel. Results appear group by group. When ≤ 100 projects are scanned the group accordion is hidden and a flat table is shown instead.
 
 ```
-scanHub()
+loadHubProjects()
  ├─ getAllAdminProjects()        ACC Admin API — all active projects, paginated
  ├─ getMemberProjectIds()        DM API — pre-marks non-member projects (3-legged only)
+ └─ Populates S.projects as Queued — no file scanning yet
+
+  ↓ user optionally filters by name, then clicks Scan
+
+startScan()
+ ├─ Applies name filter — removes non-matching pending projects
  └─ For each group of 100 (sequential)
      ├─ refreshSessionIfNeeded() Proactive token refresh if token >50 min old
      └─ pool(projects, 3–4)      3 parallel (3-legged) or 4 (2-legged)
@@ -202,7 +217,9 @@ scanHub()
              │    Queue ordered by FOLDER_PRIORITY (Project Files → Shared → disciplines → other)
              │    SKIP_FOLDERS applied at every depth (Archive, Old, Specs, Admin, etc.)
              │    MAX_FOLDER_DEPTH=4 — never descends beyond discipline/phase/subphase
-             │    Collects all .rvt items (hidden:true filtered); GUID-named files → systemFiles[]
+             │    Collects all .rvt items (including hidden=true — DC consumed files are real models)
+             │    GUID-named files → systemFiles[] (DA outputs, conflict backups — not counted toward risk)
+             │    10-minute soft-stop: proj._timeout drains queue, preserves files already found
              ├─ Pass 1b: DM API version fetches — pool(allRvtItems, 8)
              │    /items/{id}/versions → extension.type → RCW or RC
              │                        → revitProjectVersion → authoritative year (done)
@@ -220,6 +237,11 @@ scanHub()
                   Searches UTF-16LE bytes for "Format: YYYY" or "Autodesk Revit YYYY"
                   → if found: version resolved
                   → if not found after 20 MB: No Version — listed by name+path for manual review
+
+  ↓ scan complete (or stopped)
+
+resetScan()   ← "New scan" button or "Stop & new scan" during scanning
+ └─ Rebuilds S.projects from cached allAdminProjects + cached member data — instant, no API calls
 ```
 
 ### Folder walk optimisations
@@ -304,8 +326,8 @@ Verify your APS app type is **Traditional Web App** or **Service App (M2M)** —
 **Projects show "No Version" despite being RCW**
 These files use the pre-2023 BIM 360 schema where `revitProjectVersion` is absent. The tool automatically runs three passes: a Model Derivative manifest check (Pass 2) and a binary OLE2 header parse (Pass 3, up to 20 MB across six progressive chunk sizes). If all passes return no data, the project shows **No Version**. After scanning completes, a collapsible amber alert appears below the summary metric boxes listing every unresolved file across the entire hub — project name, file name, and folder path — without needing to expand individual project rows. The expanded project row also shows a per-project list of unresolved files for quick reference.
 
-**Many "timed out after 5 minutes"**
-Usually indicates a project with an unusually deep or large folder structure. The depth limit (4 levels) and skip list should prevent most of these. Check the expanded row for `skippedFolders` count — if high, the project may have restricted subfolders.
+**Scan stopped early / "timed out after 10 minutes"**
+The 10-minute soft-stop preserves all files found before the cutoff. Results for that project are partial but accurate. The expanded row shows a warning and the file count reflects only what was found. Very large projects (thousands of nested folders) may hit this limit — the skip list and depth cap reduce this significantly for typical hub structures.
 
 **Scan feels slow on small projects**
 The irreducible cost is one API call per folder (~500ms each) plus one version call per `.rvt` file. For a typical project with 4 discipline folders and 10 models, that's ~2 seconds of folder walk plus version fetches. The parallel folder fetches (3 at once) and 8-concurrent version calls minimise this as much as the API allows.

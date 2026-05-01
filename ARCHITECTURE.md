@@ -6,7 +6,7 @@ Technical internals for contributors and anyone extending or adapting the code.
 
 ## Overview
 
-A single HTML file (~2,450 lines). HTML, CSS, and JavaScript in one file — no build step, no framework, no `node_modules`. Renders by writing strings into `innerHTML` via a single `render()` function. Two CDN-loaded jsPDF libraries are the only runtime dependencies.
+A single HTML file (~2,600 lines). HTML, CSS, and JavaScript in one file — no build step, no framework, no `node_modules`. Renders by writing strings into `innerHTML` via a single `render()` function. Two CDN-loaded jsPDF libraries are the only runtime dependencies.
 
 ```
 index.html
@@ -30,7 +30,10 @@ index.html
     ├── _deepScanFile()       Single-file binary parse — chunk loop + pattern search
     ├── _rvtYearFromBytes()   UTF-16LE byte pattern search (Format: YYYY / Autodesk Revit)
     ├── pool()                Concurrency primitive
-    ├── scanHub()             Top-level orchestrator — groups, token refresh, pass sequencing
+    ├── loadHubProjects()     Fetches admin project list + member check; populates S.projects as Queued
+    ├── buildProjectList()    Constructs project objects from admin project array + cached member data
+    ├── startScan()           Applies name filter, then orchestrates groups + token refresh + pass sequencing
+    ├── resetScan()           Rebuilds S.projects from cached data instantly — no API calls
     ├── deriveProject()       Aggregate per-project stats; deduplicates c4rFiles by modelGuid
     ├── State (S)             Single source of truth
     ├── pStatus() / vClass()  Pure status/tier functions
@@ -94,6 +97,9 @@ const S = {
 
   // Hub + projects
   hubs: [], hub: null,
+  allAdminProjects: [],    // full admin project list — fetched once on hub select, kept for resetScan()
+  _memberIds: new Set(),   // cached member project IDs (3-legged) — used by resetScan() without re-fetch
+  _hasMemberList: false,   // true if getMemberProjectIds() returned results
   projects: [],            // flat array — all groups reference slices
   groups: [],              // group metadata (see below)
   currentGroup: null,      // group currently scanning
@@ -106,10 +112,11 @@ const S = {
 
   // UI
   expanded: new Set(),
-  filterOpen: false, search: '',
+  filterOpen: false, search: '',  // search: name display filter AND pre-scan filter for startScan()
   statusFilters: new Set(),
   sortCol: 'risk', sortDir: -1,
   threshold: 2021,
+  _sinputFocus: false,     // true when sinput triggered re-render — bind() restores focus
   error: null,
 };
 ```
@@ -268,11 +275,24 @@ const RateLimit = {
 
 ## Scan engine
 
+### Scan flow
+
+**Phase 1 — Project list load (`loadHubProjects`):**
+Fetches the full admin project list and (for 3-legged) the user's member project IDs. Both are cached in `S.allAdminProjects`, `S._memberIds`, and `S._hasMemberList`. Projects are built via `buildProjectList()` and appear as Queued immediately — no file scanning starts. The UI shows a "Scan N projects" button.
+
+**Phase 2 — Scan (`startScan`):**
+Applies `S.search` as a pre-scan filter — non-matching pending projects are removed from `S.projects`. Then runs groups sequentially. Groups are rebuilt from the filtered set, so a filtered scan of 15 projects produces one flat group with no accordion header.
+
+**Phase 3 — Reset (`resetScan`):**
+Rebuilds `S.projects` from `S.allAdminProjects` + cached `S._memberIds` — instant, zero API calls. Clears scan state, search text, and filters. The "New scan" button (visible after scan completes) and "Stop & new scan" button (visible during scanning) both call this.
+
 ### Groups
 
 `buildGroups(projects)` slices `S.projects` into `GROUP_SIZE=100` chunks. Groups scan **sequentially**; within each group `pool(tasks, projConcurrency)` runs concurrently:
 - 3-legged: `projConcurrency = 3`
 - 2-legged: `projConcurrency = 4`
+
+When `S.groups.length === 1` (≤ 100 projects scanned), `rGroup()` skips the group header accordion and renders a flat table directly — no expand/collapse, no group badges.
 
 Sequential groups give:
 - Progressive results — Group 1 is exportable while Group 2 scans
@@ -322,8 +342,8 @@ while queue not empty:
     │    Skip if depth >= MAX_FOLDER_DEPTH
     │    Add to batchSubFolders with priority
     └─ .rvt items:
-         Skip if attributes.hidden === true  (ACC system/derivative artifacts)
-         If isSystemName(name) → push to proj.systemFiles[] (not counted toward risk)
+         hidden=true is NOT filtered — DC consumed/managed files carry hidden=true but are real user models
+         If isSystemName(name) → push to proj.systemFiles[] (DA outputs, conflict backups — not counted toward risk)
          Otherwise → push to allRvtItems (Pass 2)
   ))
   batchSubFolders.sort by priority → queue.unshift (depth-first, priority-ordered)
@@ -472,6 +492,10 @@ These must be preserved across all changes:
 | `c4rCount` uses `uniqueC4RFiles`, not `c4rFiles` | Design Collaboration copies inflate raw count; risk assessment uses unique models |
 | Null version is `Infinity` in deduplication comparison | Ensures a versioned copy of a model always beats an unresolved copy — null never displaces a known version. Among versioned copies, the lower year (worst risk) wins. |
 | All summary metric boxes show file counts | Critical, Outdated, and Current all count unique RCW models (via `uniqueC4RFiles`), not projects, for consistency and precision |
+| `hidden=true` items are NOT filtered in `isRvt` | Design Collaboration consumed/managed files carry `hidden=true` in the APS DM API but are real user-facing models. The old filter silently dropped all DC-managed RCW files. `isSystemName()` handles UUID-named artifacts instead. |
+| `S.allAdminProjects` + `S._memberIds` cached across reset | `resetScan()` rebuilds the project list without API calls — only the initial `loadHubProjects()` call fetches from the network |
+| `S.search` is dual-purpose | Before scan: `startScan()` reads it as a pre-scan filter to narrow which projects are included. After scan: `rGroup()` reads it as a display filter. Both use the same field so the filter input is consistent across states. |
+| Soft-stop timeout uses `proj._timeout` flag | A flag-based drain (not `Promise.race`) ensures `deriveProject()` always runs after `scanProject()` returns — on a complete dataset. `Promise.race` left `scanProject()` running in the background while `deriveProject()` ran on empty/partial `c4rFiles`. |
 
 ---
 
