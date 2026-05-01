@@ -219,7 +219,7 @@ scanHub()
                   Progressive Range requests: 64 KB → 256 KB → 1 MB → 5 MB
                   Searches UTF-16LE bytes for "Format: YYYY" or "Autodesk Revit YYYY"
                   → if found: version resolved
-                  → if not found after 5 MB: deepScanFailed — verify manually in ACC
+                  → if not found after 5 MB: No Version — verify manually in ACC
 ```
 
 ### Folder walk optimisations
@@ -336,7 +336,7 @@ No build step, no `node_modules`, no bundler. Open `index.html` directly for loc
 
 Built by **Fernando Lima** — Sr. Technical Specialist, Autodesk.
 
-Original tool by **Tanmay Bhalerao** — Senior Account Technical Lead, Autodesk. Community enhancements: ACC Admin API, 2-legged auth, project groups, smart folder scanning, parallel BFS, inline version classification, rate limiting, token auto-refresh, version inference, PDF redesign, accuracy tracking, resilience improvements.
+Original tool by **Tanmay Bhalerao** — Senior Account Technical Lead, Autodesk. Community enhancements: ACC Admin API, 2-legged auth, project groups, smart folder scanning, parallel BFS, inline version classification, rate limiting, token auto-refresh, PDF redesign, accuracy tracking, resilience improvements.
 
 > **Disclaimer:** This is a personal project and is not official Autodesk software. It is provided as-is with no warranty or liability from Autodesk.
 

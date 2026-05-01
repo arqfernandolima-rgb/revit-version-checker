@@ -24,9 +24,13 @@ index.html
     ├── CONCURRENCY           VERSION_FETCHES, FOLDER_FETCHES, YIELD_EVERY
     ├── GROUP_SIZE            Projects per sequential scan group
     ├── buildGroups()         Split projects into GROUP_SIZE chunks
-    ├── scanProject()         BFS folder walk + version classification
+    ├── scanProject()         BFS folder walk + DM API version classification (Pass 1)
+    ├── manifestScan()        Model Derivative manifest check (Pass 2)
+    ├── binaryScan()          OLE2 binary header parse via OSS Range requests (Pass 3)
+    ├── _deepScanFile()       Single-file binary parse — chunk loop + pattern search
+    ├── _rvtYearFromBytes()   UTF-16LE byte pattern search (Format: YYYY / Autodesk Revit)
     ├── pool()                Concurrency primitive
-    ├── scanHub()             Top-level orchestrator
+    ├── scanHub()             Top-level orchestrator — groups, token refresh, pass sequencing
     ├── deriveProject()       Aggregate per-project stats
     ├── State (S)             Single source of truth
     ├── pStatus() / vClass()  Pure status/tier functions
@@ -162,13 +166,16 @@ const S = {
   id: 'urn:...',
   name: 'Architecture.rvt',
   path: 'Project Files / Architecture',
-  version: '2021',          // String year, or null if unknown
+  version: '2021',          // String year, or null if unresolved after all passes
   isC4R: true,
   modTime: '2021-03-11T...',
   modBy: 'John Janzen',
-  inferredVersion: false,   // true when year came from modTime, not revitProjectVersion
+  versionSource: 'manifest',// 'manifest' | 'file-header' | undefined (API)
   modelGuid: 'e5a59497-...', // from extension.data.modelGuid — shared across Design Collaboration copies
+  versionUrn: 'urn:...',    // item version URN — used for MD manifest lookup
+  storageUrn: 'urn:adsk.objects:os.object:...', // OSS storage URN — used for binary Range reads
   isCopy: false,            // true if another file in the same project shares this modelGuid
+  deepScanFailed: true,     // set when all three passes return no version
 }
 ```
 
@@ -302,7 +309,7 @@ topFolders API call
   └─ Build initial queue with depth=1
 ```
 
-#### Pass 1 — Parallel BFS
+#### Pass 1a — Parallel BFS
 
 ```
 while queue not empty:
@@ -326,38 +333,50 @@ JavaScript is single-threaded: post-`await` synchronous code within each batch i
 
 > **Why not `?include=version`?** Appending `?include=version` forces APS to resolve version metadata server-side for every item in the folder — including PDFs, DWGs, images. On a folder with 200 non-Revit files this pushes response time well past the 30s per-request timeout. The plain `apiAll` call is reliable; version data is fetched selectively in Pass 2 only for `.rvt` files.
 
-#### Version inference (both inline and Pass 2 paths)
-
-When `revitProjectVersion` is absent from the API response (pre-2023 BIM 360 schema):
-
-```
-modYear = new Date(lastModifiedTime).getFullYear()
-if modYear ≤ threshold+2:
-  version = String(modYear)
-  inferredVersion = true
-else:
-  version = null  // cannot safely assume Current — leave as No Version
-```
-
-This covers:
-- Files modified ≤ threshold → Critical (e.g. 2021 → Critical with threshold=2021)
-- Files modified threshold+1 or +2 → Outdated (e.g. 2022/2023 with threshold=2021)
-- Files modified before 2020 → Critical (always ≤ any threshold we use)
-- Files modified after threshold+2 → left as No Version (manual review required)
-
-#### Pass 2 — Version fetches
+#### Pass 1b — Version fetches (DM API)
 
 ```
 pool(allRvtItems, VERSION_FETCHES=8):
   api(/items/{id}/versions)
     └─ versions[0].extension.type → .includes('c4r') → isC4R
-    └─ versions[0].extension.data.revitProjectVersion → year
-    └─ if absent: apply date inference from lastModifiedTime
+    └─ versions[0].extension.data.revitProjectVersion → version (done)
+    └─ if absent: version = null → proceed to Pass 2
     └─ versions[0].extension.data.modelGuid → stored for deduplication
+    └─ versions[0].relationships.storage.data.id → storageUrn (for Pass 3)
   Push to c4rFiles, cloudFiles, or failedFiles
 ```
 
 **Why every `.rvt` item gets a version call:** Older BIM 360 files (2019–2022) commonly carry `items:autodesk.bim360:File` at the item level even when Cloud Workshared. Item-level type is not reliable. The version-level `extension.type` is authoritative — no item-level shortcuts are taken.
+
+#### Pass 2 — Model Derivative manifest check
+
+```
+pool(c4rFiles where version === null, concurrency=4):
+  api(/modelderivative/v2/designdata/{b64urn}/manifest)
+    └─ derivatives[].properties["Document Information"].revitProductVersion
+    └─ if found: version = year, versionSource = 'manifest'
+    └─ if 404: file was never translated → proceed to Pass 3
+    └─ if translated but no version field: proceed to Pass 3
+```
+
+#### Pass 3 — Binary OLE2 header parse
+
+```
+pool(c4rFiles where version === null, concurrency=3):
+  api(/oss/v2/buckets/{bucket}/objects/{key}/signeds3download?minutesExpiration=10)
+    └─ signed URL for S3 Range request
+
+  For each chunk size in [65535, 262143, 1048575, 5242879]:
+    fetch(url, { headers: { Range: 'bytes=0-{end}' } })
+    └─ _rvtYearFromBytes(arrayBuffer):
+         Search UTF-16LE bytes for 'Format: YYYY' (Revit 2019+)
+         Fallback: search for 'Autodesk Revit 2' + 3-digit suffix (older)
+         Return year string or null
+    └─ if found: version = year, versionSource = 'file-header', stop
+    └─ if not found after 5 MB: deepScanFailed = true
+```
+
+Per-chunk resolution is logged to console per project: `(64KB:N, 256KB:N, 1MB:N, 5MB:N)` to aid diagnostics.
 
 ---
 
@@ -378,7 +397,7 @@ function pStatus(p) {
 }
 ```
 
-The `no-version` status fires when a project has confirmed C4R files but no version year — either none were inferable from modification date, or all inferences produced years > threshold+2.
+The `no-version` status fires when a project has confirmed C4R files but no version year after all three passes — the DM API lacked `revitProjectVersion`, the file was never translated (no manifest), and the binary parse returned nothing up to 5 MB.
 
 ---
 
@@ -441,11 +460,11 @@ These must be preserved across all changes:
 | `pStatus(p)` is always pure | No side effects — called in render loops, filter, sort, export |
 | `didParseCell`/`didDrawCell` use `filteredProjs[row.index]` | Active filter makes `S.projects` indices wrong |
 | C4R detection uses **version-level** `extension.type` | Item-level type is unreliable for pre-2023 BIM 360 files |
-| No item-level type shortcuts in Pass 2 | `isDefinitelyRC` caused false negatives for older BIM 360 C4R files |
+| No item-level type shortcuts in Pass 1b | `isDefinitelyRC` caused false negatives for older BIM 360 C4R files |
 | `latest` declared outside the `try{}` block | Keeps `modelGuid` in scope after the try-catch; pool silently swallows ReferenceErrors |
 | `S.clientSecret` never written to any storage | Security invariant — heap memory only |
 | PDF column widths sum to 269mm | Layout breaks if mismatched |
-| `inferredVersion=true` whenever version came from modTime | UI must show `(est.)` label to be transparent |
+| `version` is always authoritative — no inference | Date-based inference was unreliable for long-running projects on old Revit |
 | `c4rCount` uses `uniqueC4RFiles`, not `c4rFiles` | Design Collaboration copies inflate raw count; risk assessment uses unique models |
 
 ---
