@@ -1123,10 +1123,12 @@ async function scanHub(hub){
       render(); // flip row from Queued → Scanning immediately
 
       proj.scanStart=Date.now();
-      const timeout=new Promise(res=>setTimeout(()=>{
+      let _th;
+      const timeout=new Promise(res=>{_th=setTimeout(()=>{
         proj.scanError='Timed out after 5 minutes — project may be very large or the API is unresponsive';res();
-      },PROJECT_TIMEOUT));
+      },PROJECT_TIMEOUT);});
       await Promise.race([scanProject(proj,hub),timeout]);
+      clearTimeout(_th); // cancel stale timer — prevents it firing after scan already completed
       proj.scanTime=parseFloat(((Date.now()-proj.scanStart)/1000).toFixed(1));
 
       deriveProject(proj);
@@ -2124,11 +2126,6 @@ function rRow(p){
         <table class="xmini" style="margin-top:6px"><tbody>
         ${p.failedFiles.map(f=>`<tr><td>${esc(f.name)}</td><td style="font-size:11px">${esc(f.path||'')}</td><td>${fDate(f.modTime)}</td></tr>`).join('')}
         </tbody></table>
-      </div>`;
-    }
-    if(p.scanError){
-      html+=`<div style="margin:8px 0 4px;padding:7px 10px;background:var(--red-dim);border:1px solid rgba(220,38,38,0.2);border-radius:5px;font-size:11px;color:var(--red)">
-        Scan error: ${esc(p.scanError)}
       </div>`;
     }
     // System files (hidden or GUID-named)
