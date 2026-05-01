@@ -221,7 +221,7 @@ Browser                              Autodesk
 
 Every API call flows through `api()`:
 
-1. `RateLimit.throttle()` — waits if the 60s call window is at capacity
+1. `RateLimit.throttle()` — consumes one token; waits if bucket is empty
 2. `AbortController` + `setTimeout(30s)` — cancels hung connections after 30 seconds
 3. **401** → `refreshSessionIfNeeded(force=true)` + retry once; if fails → abort scan
 4. **429** → exponential backoff: 1.5s, 3s, 6s
@@ -234,21 +234,28 @@ Follows `links.next` pagination. Uses `new URL(href, APS)` for robust URL normal
 
 ### Rate limiter
 
+Token bucket — refills at a constant rate, no bursting allowed.
+
 ```js
 const RateLimit = {
-  calls: [],
-  limit() { return S.authMode === '2-legged' ? 180 : 100; }, // conservative limits
+  tokens,      // current token count — starts at capacity(), drained by throttle()
+  lastRefill,  // Date.now() of last refill calculation
+  capacity()   { return S.authMode === '2-legged' ? 180 : 100; },
+  ratePerMs()  { return this.capacity() / 60000; }, // ~1.67/s (3-legged), ~3/s (2-legged)
+  load()       { /* % of capacity consumed — shown in progress bar if >70% */ },
+  reset()      { this.tokens = this.capacity(); this.lastRefill = Date.now(); },
   async throttle() {
-    // Prune calls older than 60s
-    // If at limit: wait until oldest call ages out (exact, not approximate)
-    // Record call timestamp
+    // Refill based on elapsed time since lastRefill
+    // If tokens >= 1: consume and return immediately
+    // Else: wait exactly (1 - tokens) / ratePerMs ms, then refill and consume
   }
 };
 ```
 
 - **3-legged:** 100/min (actual APS limit ~150/min)
 - **2-legged:** 180/min (actual APS limit ~250/min)
-- `RateLimit.calls` reset at start of each scan and after each token refresh
+- `RateLimit.reset()` called at scan start and after each token refresh
+- Previous sliding-window approach allowed bursting to full capacity then stalled 40–60s; token bucket spreads waits evenly — a small project's calls each wait ≤600ms instead of 10–15s after a burst from concurrent large projects
 
 ---
 

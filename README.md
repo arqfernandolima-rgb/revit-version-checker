@@ -1,6 +1,6 @@
 # Revit Version Checker
 
-[![Version](https://img.shields.io/badge/version-1.2.7-blue)](https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.2.7)
+[![Version](https://img.shields.io/badge/version-1.3.0-blue)](https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.3.0)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 **Scan every project in an Autodesk Forma / ACC hub for Revit cloud worksharing deprecation risk — no server required.**
@@ -34,7 +34,7 @@ Finding affected projects manually — hub by hub, project by project — is imp
 | Parallel folder fetches | 3 folder content calls per project in parallel — 2–3× faster folder walk |
 | Project groups | Hub split into groups of 100; groups scan sequentially; results appear progressively; exportable per group |
 | Parallel scanning | 3–4 projects in parallel within each group; 8 version fetches per project |
-| Proactive rate limiting | Token-bucket tracks calls/min; inserts precise waits before hitting APS limits |
+| Proactive rate limiting | Token bucket refills at a steady rate (100/min 3-legged, 180/min 2-legged); waits are spread evenly — no burst/stall cycles |
 | Token auto-refresh | Silently refreshes between groups — scans survive past the 1-hour token expiry |
 | Per-request timeout | 30s AbortController on every fetch; hung connections abort and retry rather than stalling |
 | Version inference | When `revitProjectVersion` is absent (pre-2023 schema), year is inferred from file date and flagged as estimated |
