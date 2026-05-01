@@ -232,9 +232,9 @@ tr.risk-row:hover{background:rgba(220,38,38,0.05)}
 </div>
 <script>
 // ─── VERSION ──────────────────────────────────────────────────────────────────
-const VERSION='1.5.2';
+const VERSION='1.5.3';
 const RELEASE_DATE='2026-05-01';
-const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.5.2';
+const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.5.3';
 
 const APS='https://developer.api.autodesk.com';
 const OAUTH={
@@ -2060,10 +2060,13 @@ function rGroup(grp,gi){
     else{av=0;bv=0;}
     return av<bv?-S.sortDir:av>bv?S.sortDir:0;
   });
-  const gc=gProjects.filter(p=>pStatus(p)==="critical").length;
-  const gw=gProjects.filter(p=>pStatus(p)==="warn").length;
-  const go=gProjects.filter(p=>pStatus(p)==="ok").length;
-  const gnv=gProjects.filter(p=>pStatus(p)==="no-version").length;
+  // File-level counts across all projects in this group (unique models, not copies).
+  // Mixed projects contribute their individual files to the appropriate tier bucket.
+  const gAllFiles=gProjects.flatMap(p=>p.uniqueC4RFiles||[]);
+  const gc=gAllFiles.filter(f=>f.version&&parseInt(f.version)<=S.threshold).length;
+  const gw=gAllFiles.filter(f=>f.version&&parseInt(f.version)>S.threshold&&parseInt(f.version)<=S.threshold+2).length;
+  const go=gAllFiles.filter(f=>f.version&&parseInt(f.version)>=S.threshold+3).length;
+  const gnv=gAllFiles.filter(f=>!f.version).length;
   let summaryHtml="";
   if(grp.status==="pending"){
     summaryHtml=`<span class="chip chip-pending" style="font-size:10px">${grp.ptotal} queued</span>`;

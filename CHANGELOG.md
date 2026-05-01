@@ -9,6 +9,16 @@ This is a personal project and is not official Autodesk software. No warranty or
 
 ---
 
+## [1.5.3] — 2026-05-01
+
+### Fixed — Group header counts now reflect file totals, not project totals
+
+- **Root cause:** the Critical / Outdated / Current / No Version badges in the group header were counting *projects* by status. Mixed-version projects (status `mixed`) contributed zero to every badge and were invisible in the totals.
+- **Fix:** badges now aggregate `uniqueC4RFiles` across every project in the group and count files by version tier. A mixed project's 2021 files increment Critical; its 2024 files increment Current. Design Collaboration copies are excluded (unique model count, same as the risk table).
+- Total file counts now correctly reflect every RCW model in the group regardless of whether the project is single-version, mixed, or fully unresolved.
+
+---
+
 ## [1.5.2] — 2026-05-01
 
 ### Changed — Extended binary scan to 20 MB
