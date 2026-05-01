@@ -1,6 +1,6 @@
 # Revit Version Checker
 
-[![Version](https://img.shields.io/badge/version-1.5.0-blue)](https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.5.0)
+[![Version](https://img.shields.io/badge/version-1.5.5-blue)](https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.5.5)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 **Scan every project in an Autodesk Forma / ACC hub for Revit cloud worksharing deprecation risk — no server required.**
@@ -40,7 +40,7 @@ Finding affected projects manually — hub by hub, project by project — is imp
 | Three-pass version detection | P1: DM API. P2: Model Derivative manifest. P3: OLE2 binary header parse. All automatic, no manual action required |
 | Threshold picker | Choose 2021 or 2022 as the critical cutoff; all tiers adjust instantly without re-scanning |
 | Multi-status filter | Combine any statuses (e.g. Critical + Outdated) for targeted exports |
-| Accuracy statement | PDF includes file-level accuracy % and caveats for inaccessible folders/projects |
+| RCW version ID rate | PDF includes resolved/total ratio and caveats for inaccessible folders/projects |
 | PDF report | Landscape A4, colour-coded rows and status badges, clickable ACC links, per-group or hub-wide |
 | CSV export | Two-section layout (Project Summary + RCW File Detail), ACC links, Version Source / Is Copy columns, UTF-8 safe, per-group or hub-wide |
 | Demo mode | Sample projects covering every status tier — no login required |
@@ -251,13 +251,15 @@ versions:autodesk.a360:C4RModel     Early A360 era
 versions:autodesk.core:C4RModel     ACC native
 ```
 
-### Scan accuracy
+### RCW version ID rate
 
 ```
-accuracy % = classified / (classified + failed)
+version ID rate % = resolved C4R files / total C4R files
 ```
 
-Failed files (version call failed after all retries) appear in each project's expanded row and in the PDF accuracy statement. Inaccessible folders (403) and no-access projects are flagged separately — their contents are unknown and excluded from accuracy calculations.
+"Resolved" means the Revit year was returned by at least one of the three passes. Files where all passes returned no version count as unresolved. The rate and unresolved count appear in the PDF report.
+
+Failed files (version API call failed after all retries) appear in each project's expanded row and are flagged in the PDF caveats. Inaccessible folders (403) and no-access projects are also flagged separately — their contents are unknown and not included in the rate calculation.
 
 ---
 
@@ -300,7 +302,7 @@ The tool auto-refreshes between groups (every ~100 projects). If a single projec
 Verify your APS app type is **Traditional Web App** or **Service App (M2M)** — Single-Page App does not generate a Client Secret. Also verify the app is registered as a Custom Integration in ACC Hub Admin.
 
 **Projects show "No Version" despite being RCW**
-These files use the pre-2023 BIM 360 schema where `revitProjectVersion` is absent. The tool automatically runs three passes: a Model Derivative manifest check (Pass 2) and a binary OLE2 header parse (Pass 3, up to 20 MB across six progressive chunk sizes). If all passes return no data, the project shows **No Version** and the expanded row lists each unresolved file by name and path for manual follow-up in ACC.
+These files use the pre-2023 BIM 360 schema where `revitProjectVersion` is absent. The tool automatically runs three passes: a Model Derivative manifest check (Pass 2) and a binary OLE2 header parse (Pass 3, up to 20 MB across six progressive chunk sizes). If all passes return no data, the project shows **No Version**. After scanning completes, a collapsible amber alert appears below the summary metric boxes listing every unresolved file across the entire hub — project name, file name, and folder path — without needing to expand individual project rows. The expanded project row also shows a per-project list of unresolved files for quick reference.
 
 **Many "timed out after 5 minutes"**
 Usually indicates a project with an unusually deep or large folder structure. The depth limit (4 levels) and skip list should prevent most of these. Check the expanded row for `skippedFolders` count — if high, the project may have restricted subfolders.

@@ -6,7 +6,7 @@ Technical internals for contributors and anyone extending or adapting the code.
 
 ## Overview
 
-A single HTML file (~2,200 lines). HTML, CSS, and JavaScript in one file — no build step, no framework, no `node_modules`. Renders by writing strings into `innerHTML` via a single `render()` function. Two CDN-loaded jsPDF libraries are the only runtime dependencies.
+A single HTML file (~2,450 lines). HTML, CSS, and JavaScript in one file — no build step, no framework, no `node_modules`. Renders by writing strings into `innerHTML` via a single `render()` function. Two CDN-loaded jsPDF libraries are the only runtime dependencies.
 
 ```
 index.html
@@ -31,7 +31,7 @@ index.html
     ├── _rvtYearFromBytes()   UTF-16LE byte pattern search (Format: YYYY / Autodesk Revit)
     ├── pool()                Concurrency primitive
     ├── scanHub()             Top-level orchestrator — groups, token refresh, pass sequencing
-    ├── deriveProject()       Aggregate per-project stats
+    ├── deriveProject()       Aggregate per-project stats; deduplicates c4rFiles by modelGuid
     ├── State (S)             Single source of truth
     ├── pStatus() / vClass()  Pure status/tier functions
     ├── Renderers             rSetup / rHubs / rDash / rGroup / rRow / rAbout
@@ -397,7 +397,11 @@ function pStatus(p) {
 }
 ```
 
-The `no-version` status fires when a project has confirmed C4R files but no version year after all three passes — the DM API lacked `revitProjectVersion`, the file was never translated (no manifest), and the binary parse returned nothing up to 20 MB. Unresolved files are listed by name and path in the expanded row for manual follow-up.
+The `no-version` status fires when a project has confirmed C4R files but `uniqueC4RFiles` contains no resolved version year after all three passes — the DM API lacked `revitProjectVersion`, the file was never translated (no manifest), and the binary parse returned nothing up to 20 MB.
+
+Unresolved files appear in two places:
+1. A collapsible hub-wide amber alert below the summary metric boxes — project + file + path for every unresolved model across the hub, visible without expanding individual rows.
+2. The expanded project row — per-project list of unresolved models (from `uniqueC4RFiles`, not raw `c4rFiles`, so DC copies whose version is known via another copy are excluded).
 
 ---
 
@@ -466,6 +470,8 @@ These must be preserved across all changes:
 | PDF column widths sum to 269mm | Layout breaks if mismatched |
 | `version` is always authoritative — no inference | Date-based inference was unreliable for long-running projects on old Revit |
 | `c4rCount` uses `uniqueC4RFiles`, not `c4rFiles` | Design Collaboration copies inflate raw count; risk assessment uses unique models |
+| Null version is `Infinity` in deduplication comparison | Ensures a versioned copy of a model always beats an unresolved copy — null never displaces a known version. Among versioned copies, the lower year (worst risk) wins. |
+| All summary metric boxes show file counts | Critical, Outdated, and Current all count unique RCW models (via `uniqueC4RFiles`), not projects, for consistency and precision |
 
 ---
 
