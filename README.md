@@ -317,9 +317,11 @@ No build step, no `node_modules`, no bundler. Open `index.html` directly for loc
 
 ## Credits
 
-Original tool by **Tanmay Bhalerao** — Senior Account Technical Lead, Autodesk.
+Built by **Fernando Lima** — Sr. Technical Specialist, Autodesk.
 
-Community enhancements: ACC Admin API, 2-legged auth, project groups, smart folder scanning, parallel BFS, inline version classification, rate limiting, token auto-refresh, version inference, PDF redesign, accuracy tracking, resilience improvements.
+Original tool by **Tanmay Bhalerao** — Senior Account Technical Lead, Autodesk. Community enhancements: ACC Admin API, 2-legged auth, project groups, smart folder scanning, parallel BFS, inline version classification, rate limiting, token auto-refresh, version inference, PDF redesign, accuracy tracking, resilience improvements.
+
+> **Disclaimer:** This is a personal project and is not official Autodesk software. It is provided as-is with no warranty or liability from Autodesk.
 
 ---
 

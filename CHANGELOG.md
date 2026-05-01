@@ -4,6 +4,9 @@ All notable changes are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Versioning follows [Semantic Versioning](https://semver.org/).
 
+Maintained by **Fernando Lima** (Sr. Technical Specialist, Autodesk) — built on original work by **Tanmay Bhalerao**.
+This is a personal project and is not official Autodesk software. No warranty or liability from Autodesk.
+
 ---
 
 ## [1.3.1] — 2026-04-30
