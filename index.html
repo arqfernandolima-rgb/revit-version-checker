@@ -231,9 +231,9 @@ tr.risk-row:hover{background:rgba(220,38,38,0.05)}
 </div>
 <script>
 // ─── VERSION ──────────────────────────────────────────────────────────────────
-const VERSION='1.2.9';
+const VERSION='1.3.0';
 const RELEASE_DATE='2026-04-30';
-const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.2.9';
+const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.3.0';
 
 const APS='https://developer.api.autodesk.com';
 const OAUTH={
@@ -349,7 +349,7 @@ async function refreshSessionIfNeeded(force=false){
   if(S.authMode==='2-legged'){
     try{
       await connectTwoLegged(S.clientId,S.clientSecret);
-      RateLimit.calls=[];
+      RateLimit.reset();
       S.tokenExpired=false;
     }catch(e){
       S.error='Token refresh failed: '+e.message+'. Scan stopped.';
@@ -375,7 +375,7 @@ async function refreshSessionIfNeeded(force=false){
       S.token=d.access_token;
       if(d.refresh_token)S.refreshToken=d.refresh_token; // rolling refresh token
       S.tokenIssuedAt=Date.now();
-      RateLimit.calls=[];
+      RateLimit.reset();
       S.tokenExpired=false;
     }catch(e){
       // Refresh failed — continue; api() 401 handler will stop the scan if needed
@@ -466,8 +466,7 @@ function renderProgress(){
   if(pp)pp.textContent=S.pct+'%';
   if(sm)sm.textContent=S.msg||'';
   if(se)se.textContent=fmtEta(S.eta)||'';
-  const rl=RateLimit.calls.length;const lim=RateLimit.limit();
-  const rlPct=Math.round((rl/lim)*100);
+  const rlPct=RateLimit.load();
   if(ss)ss.textContent=`${S.pdone} of ${S.ptotal} done`+(rlPct>70?` · API load ${rlPct}%`:'');
   // Update the currently-scanning group's mini progress elements
   const cg=S.currentGroup;
@@ -484,26 +483,41 @@ function renderProgress(){
 // At-risk file count — always computed dynamically so threshold slider is instant
 const atRiskCount=p=>(p.uniqueC4RFiles||p.c4rFiles||[]).filter(f=>isAtRisk(f.version)).length;
 
-// ─── RATE LIMITER ─────────────────────────────────────────────────────────────
-// Proactive back-pressure: track calls in the last 60s and insert a brief pause
-// when approaching the APS DM limit (~55 req/min for 3-legged, ~190 for 2-legged).
-// This prevents 429 cascades that compound into multi-second stalls.
+// ─── RATE LIMITER — token bucket ──────────────────────────────────────────────
+// Token bucket refills at a steady rate (capacity/60s). Each API call consumes
+// 1 token. If the bucket is empty, the call waits only until the next token
+// accumulates — no burst/stall cycles.
+//
+// vs. the old sliding window: sliding window allowed bursting to the full limit
+// then stalled for up to 60s while calls aged out. Token bucket spreads waits
+// evenly — a small project caught behind a large one waits ~600ms per call
+// instead of 10–15s per call after a burst.
+//
+// Capacity is set conservatively below the real APS limit so concurrent callers
+// never collectively exceed it even with JS scheduling jitter.
 const RateLimit={
-  calls:[],        // timestamps of recent API calls
-  limit(){return S.authMode==='2-legged'?180:100;}, // 3-legged: 100/min (actual ~150), 2-legged: 180/min
-  async throttle(){
+  tokens:100,      // current tokens (starts full, refilled at ratePerMs)
+  lastRefill:0,    // Date.now() of last refill calculation
+  capacity(){return S.authMode==='2-legged'?180:100;}, // 3-legged: 100/min (actual ~150), 2-legged: 180/min
+  ratePerMs(){return this.capacity()/60000;},           // tokens accumulated per millisecond
+  load(){return Math.round((1-Math.min(this.tokens,this.capacity())/this.capacity())*100);},
+  reset(){
+    this.tokens=this.capacity();
+    this.lastRefill=Date.now();
+  },
+  _refill(){
     const now=Date.now();
-    // Remove calls older than 60s from the window
-    while(this.calls.length>0&&now-this.calls[0]>60000)this.calls.shift();
-    if(this.calls.length>=this.limit()){
-      // Window is full — wait until the oldest call ages out
-      const wait=60000-(now-this.calls[0])+50;
-      await new Promise(res=>setTimeout(res,wait));
-      // After waiting, prune again
-      const now2=Date.now();
-      while(this.calls.length>0&&now2-this.calls[0]>60000)this.calls.shift();
-    }
-    this.calls.push(Date.now());
+    this.tokens=Math.min(this.capacity(),this.tokens+(now-this.lastRefill)*this.ratePerMs());
+    this.lastRefill=now;
+  },
+  async throttle(){
+    this._refill();
+    if(this.tokens>=1){this.tokens-=1;return;}
+    // Wait exactly as long as it takes for 1 token to accumulate, plus a small buffer
+    const waitMs=Math.ceil((1-this.tokens)/this.ratePerMs())+10;
+    await new Promise(res=>setTimeout(res,waitMs));
+    this._refill();
+    this.tokens=Math.max(0,this.tokens-1);
   }
 };
 
@@ -965,7 +979,7 @@ async function scanHub(hub){
   S.hub=hub;S.projects=[];S.scanning=true;S.aborted=false;
   S.pct=0;S.pdone=0;S.error=null;S.phase='dash';S.tokenExpired=false;
   S.scanStart=Date.now();S.eta=null;S.activeNames=new Set();
-  RateLimit.calls=[];  // reset rate-limit window for new scan
+  RateLimit.reset();  // reset token bucket for new scan
   render();
 
   const accountId=hub.id.replace(/^b\./,'');

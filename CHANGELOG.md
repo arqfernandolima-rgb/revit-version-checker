@@ -6,6 +6,19 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.3.0] — 2026-04-30
+
+### Changed
+- **Rate limiter replaced with token bucket** — the previous sliding-window limiter allowed bursting to the full capacity (100 or 180 calls) then stalled for up to 60s waiting for old calls to age out. Under sustained load with 3–4 concurrent projects, a small project's calls could each wait 10–15s in that stall window, making a 3-second project take 57s.
+
+  The token bucket refills at a steady rate (capacity ÷ 60s = ~1.67 tokens/s for 3-legged, ~3/s for 2-legged). Each call waits only until the next token accumulates — never longer. The same total throughput is maintained (same capacity ceiling, same conservative limits) but waits are spread evenly rather than concentrated in post-burst stalls. A small project's 5 calls each wait ~600ms maximum instead of 10–15s each.
+
+  The `RateLimit.calls` sliding window is replaced by `tokens` + `lastRefill`. Three reset sites updated from `RateLimit.calls=[]` to `RateLimit.reset()`. The API load indicator in the progress bar now reads from `RateLimit.load()` (token depletion %) rather than call count.
+
+  The APS rate limit ceiling is unchanged — this change cannot cause more 429s than before.
+
+---
+
 ## [1.2.9] — 2026-04-30
 
 ### Changed
