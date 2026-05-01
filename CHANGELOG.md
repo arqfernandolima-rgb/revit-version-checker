@@ -9,6 +9,19 @@ This is a personal project and is not official Autodesk software. No warranty or
 
 ---
 
+## [1.4.1] — 2026-05-01
+
+### Added — Deep Scan (OLE2 binary file header parse)
+- **Deep Scan button** appears in the group header after scanning completes when RCW files remain unresolved. Reads the Revit version directly from the `.rvt` binary via OSS signed URL + HTTP Range requests — no server, no library.
+- **Three-pass version detection now complete:** DM API → Model Derivative manifest → binary file header (OLE2 `BasicFileInfo` stream).
+- Searches for UTF-16LE pattern `Format: YYYY` (Revit 2019+) and `Autodesk Revit YYYY` (older build strings). Progressive chunk sizes: 64 KB → 256 KB → 1 MB.
+- Runs in the background (non-blocking) — other groups can continue scanning in parallel.
+- Files resolved via binary header marked `(file)` in green in the table and `File Header (OLE2)` in CSV exports.
+- Per-project banners: green strip for binary-resolved files; amber strip listing files that failed all three passes with a prompt to verify manually in ACC.
+- `storageUrn` now captured in Pass 2 from `latest.relationships.storage.data.id`.
+
+---
+
 ## [1.4.0] — 2026-05-01
 
 ### Changed — Manifest check scope expanded
