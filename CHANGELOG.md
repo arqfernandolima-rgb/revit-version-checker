@@ -9,6 +9,15 @@ This is a personal project and is not official Autodesk software. No warranty or
 
 ---
 
+## [1.5.2] — 2026-05-01
+
+### Changed — Extended binary scan to 20 MB
+
+- Binary header parse now tries two additional chunk sizes: **10 MB** and **20 MB** (progression: 64 KB → 256 KB → 1 MB → 5 MB → 10 MB → 20 MB). Each pass is only attempted if the previous one found nothing. Targets the small percentage of files where OLE2 sector allocation placed `BasicFileInfo` deeper than 5 MB — typically very old BIM 360 files upgraded through multiple Revit versions.
+- Files that still return no version after 20 MB are marked **No Version** and listed by name + path in the expanded project row for manual follow-up in ACC.
+
+---
+
 ## [1.5.1] — 2026-05-01
 
 ### Changed — PDF metric renamed and corrected
