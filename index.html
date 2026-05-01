@@ -232,9 +232,9 @@ tr.risk-row:hover{background:rgba(220,38,38,0.05)}
 </div>
 <script>
 // ─── VERSION ──────────────────────────────────────────────────────────────────
-const VERSION='1.6.1';
+const VERSION='1.6.2';
 const RELEASE_DATE='2026-05-01';
-const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.6.1';
+const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.6.2';
 
 const APS='https://developer.api.autodesk.com';
 const OAUTH={
@@ -400,7 +400,7 @@ const S={
   uname:localStorage.getItem('rvt_uname')||'',
   userId:localStorage.getItem('rvt_userid')||'',
   clientId:localStorage.getItem('rvt_client_id')||'',
-  hubs:[],hub:null,allAdminProjects:[],projectFilter:'',projects:[],groups:[],currentGroup:null,
+  hubs:[],hub:null,allAdminProjects:[],_memberIds:new Set(),_hasMemberList:false,projectFilter:'',projects:[],groups:[],currentGroup:null,
   scanning:false,aborted:false,
   pct:0,msg:'',pdone:0,ptotal:0,
   scanStart:null,eta:null,
@@ -1126,15 +1126,23 @@ async function loadHubProjects(hub){
   const active=S.allAdminProjects.filter(p=>p.status==='active'&&
     (!_dbgProject||p.name?.toLowerCase().includes(_dbgProject.toLowerCase())));
 
-  let memberIds=new Set(),hasMemberList=false;
+  S._memberIds=new Set();S._hasMemberList=false;
   if(S.authMode!=='2-legged'){
-    memberIds=await getMemberProjectIds(hub.id);
-    hasMemberList=memberIds.size>0;
+    S._memberIds=await getMemberProjectIds(hub.id);
+    S._hasMemberList=S._memberIds.size>0;
   }
 
-  S.projects=active.map(p=>{
+  S.projects=buildProjectList(active);
+  S.pdone=S.projects.filter(p=>p.noAccess).length;
+  S.ptotal=S.projects.length;
+  S.groups=buildGroups(S.projects);
+  render(); // shows all projects as Queued — scan hasn't started
+}
+
+function buildProjectList(active){
+  return active.map(p=>{
     const dmId='b.'+p.id;
-    const noAccess=hasMemberList&&!memberIds.has(dmId);
+    const noAccess=S._hasMemberList&&!S._memberIds.has(dmId);
     return{
       id:dmId,adminId:p.id,
       name:p.name||p.id,status:p.status,
@@ -1144,12 +1152,20 @@ async function loadHubProjects(hub){
       c4rVersion:null,c4rVersions:[],c4rCount:0,cloudCount:0,c4rCopyCount:0,lastMod:null,
       uniqueC4RFiles:[],systemFiles:[],skippedFolders:0,scanStart:null,scanTime:null
     };
-  });
-  S.projects.filter(p=>p.noAccess).forEach(p=>p.pending=false);
+  }).map(p=>{if(p.noAccess)p.pending=false;return p;});
+}
+
+function resetScan(){
+  S.scanning=false;S.aborted=false;S.search='';
+  S.pdone=0;S.ptotal=0;S.pct=0;S.expanded=new Set();S.statusFilters=new Set();
+  const _dbgProject=new URLSearchParams(location.search).get('project');
+  const active=S.allAdminProjects.filter(p=>p.status==='active'&&
+    (!_dbgProject||p.name?.toLowerCase().includes(_dbgProject.toLowerCase())));
+  S.projects=buildProjectList(active);
   S.pdone=S.projects.filter(p=>p.noAccess).length;
   S.ptotal=S.projects.length;
   S.groups=buildGroups(S.projects);
-  render(); // shows all projects as Queued — scan hasn't started
+  render();
 }
 
 async function startScan(){
@@ -2039,9 +2055,12 @@ ${nvFileCount>0&&!S.scanning?`<details style="margin-bottom:12px;background:var(
              :S.projects.filter(p=>!p.noAccess).length;
     return`<button class="btn btn-p btn-sm" onclick="startScan()" ${n===0?'disabled':''}>Scan ${n} project${n!==1?'s':''}</button>`;
   })():''}
+  ${S.allAdminProjects.length>0&&!S.scanning&&S.projects.length>0&&!S.projects.some(p=>p.pending)?
+    `<button class="btn btn-g btn-sm" onclick="resetScan()">New scan</button>`:''}
   <div class="sw" style="flex:1;max-width:320px">
     <svg viewBox="0 0 16 16" fill="currentColor"><path d="M11.7 10.3a6.5 6.5 0 10-1.4 1.4l3.85 3.85a1 1 0 001.4-1.4l-3.85-3.85zM6.5 11a4.5 4.5 0 110-9 4.5 4.5 0 010 9z"/></svg>
     <input id="sinput" class="sinput" placeholder="Filter by project name" value="${esc(S.search)}" oninput="S.search=this.value;S._sinputFocus=true;render()"/>
+    ${S.search?`<button style="background:none;border:none;cursor:pointer;padding:0 4px;color:var(--muted);line-height:1;font-size:14px" onclick="S.search='';S._sinputFocus=true;render()" title="Clear filter">×</button>`:''}
   </div>
   <div style="display:flex;align-items:center;gap:10px;margin-left:auto">
     <span class="tbar-label">Critical threshold:</span>
@@ -2060,7 +2079,10 @@ ${S.scanning?`<div class="scan-box">
     <span id="seta" class="peta">${eta}</span>
   </div>
   <div id="sstats" class="pstats">${S.pdone} done &nbsp;&middot;&nbsp; ${S.activeNames?.size||0} scanning &nbsp;&middot;&nbsp; ${S.ptotal-S.pdone-(S.activeNames?.size||0)} queued</div>
-  <div style="margin-top:10px"><button class="btn btn-g btn-sm" onclick="S.aborted=true;S.scanning=false;render()">Stop scan</button></div>
+  <div style="margin-top:10px;display:flex;gap:8px">
+    <button class="btn btn-g btn-sm" onclick="S.aborted=true;S.scanning=false;render()">Stop scan</button>
+    <button class="btn btn-g btn-sm" onclick="S.aborted=true;resetScan()">Stop &amp; new scan</button>
+  </div>
 </div>`:''}
 
 <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:12px 15px;margin-bottom:12px;box-shadow:var(--shadow)">
