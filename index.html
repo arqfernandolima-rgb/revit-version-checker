@@ -231,9 +231,9 @@ tr.risk-row:hover{background:rgba(220,38,38,0.05)}
 </div>
 <script>
 // ─── VERSION ──────────────────────────────────────────────────────────────────
-const VERSION='1.3.1';
-const RELEASE_DATE='2026-04-30';
-const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.3.1';
+const VERSION='1.4.0';
+const RELEASE_DATE='2026-05-01';
+const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.4.0';
 
 const APS='https://developer.api.autodesk.com';
 const OAUTH={
@@ -1008,7 +1008,7 @@ function _yearFromManifest(mf,logFull){
 
 async function manifestScan(proj){
   const unresolved=(proj.c4rFiles||[])
-    .filter(f=>f.versionUrn&&f.version===null);
+    .filter(f=>f.versionUrn&&(f.version===null||f.inferredVersion));
   if(!unresolved.length)return;
   proj.p3total=unresolved.length;
   proj.p3done=0;

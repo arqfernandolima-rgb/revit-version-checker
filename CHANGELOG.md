@@ -9,6 +9,17 @@ This is a personal project and is not official Autodesk software. No warranty or
 
 ---
 
+## [1.4.0] — 2026-05-01
+
+### Changed — Manifest check scope expanded
+- **Manifest check now covers estimated files** — previously only ran on C4R files with no version at all (`version===null`). Now also runs on files where version was inferred from `lastModifiedTime` (`inferredVersion===true`). This catches the high-risk case: active projects still running Revit 2011–2022 that have a recent modification date, causing the date-inference to return the wrong year. If the manifest resolves a real version, it replaces the estimate and is marked `(MD)` in the table.
+
+### Fixed
+- **Stale timeout corrupting completed project results** — the 5-minute scan timeout `setTimeout` was never cancelled when a project finished early. It would fire minutes later and write `scanError` to an already-completed project, showing a false timeout message alongside a valid scan time (e.g. "78.2s" + "Timed out after 5 minutes"). Fixed with `clearTimeout` after `Promise.race` resolves.
+- **Duplicate scan error banner** — error was shown twice in the expanded project detail (once inline in the scan stats line, once as a large red banner below). The redundant bottom banner was removed.
+
+---
+
 ## [1.3.2] — 2026-05-01
 
 ### Added — Pass 3 manifest check (automatic)
