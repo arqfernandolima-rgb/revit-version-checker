@@ -1014,26 +1014,28 @@ async function manifestScan(proj){
   proj.p3total=unresolved.length;
   proj.p3done=0;
   proj.p3resolved=0;
-  let firstLog=true;
+  let sampleLogged=false; // log full manifest JSON once per project for structure inspection
+  const stats={resolved:0,notTranslated:0,noData:0,error:0};
   await pool(unresolved.map(f=>async()=>{
     if(S.aborted)return;
     try{
       const mf=await api('/modelderivative/v2/designdata/'+_mdB64(f.versionUrn)+'/manifest');
-      const doLog=firstLog;firstLog=false;
-      const yr=_yearFromManifest(mf,doLog);
+      const doSample=!sampleLogged;sampleLogged=true;
+      const yr=_yearFromManifest(mf,doSample);
       if(yr){
-        f.version=yr;
-        f.inferredVersion=false;
-        f.versionSource='manifest';
-        proj.p3resolved++;
-      }else if(doLog){
-        console.log('[P3 manifest] No revitProductVersion found for',f.name,'— adjust extractor if needed');
+        f.version=yr;f.inferredVersion=false;f.versionSource='manifest';
+        proj.p3resolved++;stats.resolved++;
+        console.log('[MD manifest] resolved:',f.name,'→ Revit',yr);
+      }else{
+        stats.noData++;
+        if(doSample)console.log('[MD manifest] translated but no revitProductVersion field:',f.name);
       }
     }catch(e){
-      if(firstLog){firstLog=false;console.log('[P3 manifest] miss:',e.status||e.message,f.name);}
+      if(e.status===404)stats.notTranslated++;else stats.error++;
     }
     proj.p3done++;
   }),4);
+  console.log(`[MD manifest] ${proj.name} — ${unresolved.length} checked: ${stats.resolved} resolved, ${stats.notTranslated} not translated (404), ${stats.noData} translated/no version field, ${stats.error} errors`);
 }
 
 // ─── DEEP SCAN — OLE2 BINARY HEADER PARSE ────────────────────────────────────
