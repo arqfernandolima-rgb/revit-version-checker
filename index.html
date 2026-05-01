@@ -2204,7 +2204,7 @@ function rAbout(){
         <span class="chip chip-mixed">Mixed</span><span style="color:var(--muted)">Multiple Revit versions found in the same project. Expand the row to inspect individual files.</span>
         <span class="chip chip-none">No RCW</span><span style="color:var(--muted)">No Cloud Workshared files found. Project is not affected by the deprecation.</span>
         <span class="chip chip-noaccess">No Access</span><span style="color:var(--muted)">Project listed by Admin API but file access was denied (403). See expanded row for details and resolution steps.</span>
-        <span class="chip chip-noversion">No Version</span><span style="color:var(--muted)">RCW files confirmed but Revit year absent from API (pre-2023 BIM 360 schema v1.1.x/v1.2.x). Likely 2022 or older and may be at risk. Verify manually in ACC.</span>
+        <span class="chip chip-noversion">No Version</span><span style="color:var(--muted)">RCW files confirmed but Revit year could not be resolved from the API, Model Derivative manifest, or file date. Likely 2022 or older. Use Deep Scan or verify manually in ACC.</span>
       </div>
     </div>
     <div class="card">
@@ -2218,6 +2218,34 @@ function rAbout(){
       <div style="font-size:13px;font-weight:700;margin-bottom:8px">How scanning works</div>
       <p style="font-size:13px;color:var(--muted);line-height:1.8;margin-bottom:6px">Uses <code style="font-size:11px;background:var(--surface2);padding:1px 5px;border-radius:3px">GET /construction/admin/v1/accounts/{accountId}/projects</code> to enumerate every active project. Folder contents are fetched with full pagination. Archived projects are excluded automatically.</p>
       <p style="font-size:12px;color:var(--hint);line-height:1.7">A file is Revit Cloud Workshared (RCW) if its latest version's <code style="background:var(--surface2);padding:1px 4px;border-radius:3px">extension.type</code> contains <code style="background:var(--surface2);padding:1px 4px;border-radius:3px">C4RModel</code>. Only RCW files carry a version lock and count toward deprecation risk. Plain cloud uploads (RC) do not.</p>
+      <p style="font-size:12px;color:var(--hint);line-height:1.7">Projects are split into groups of 100 and scanned sequentially. Within each group, 3–4 projects run in parallel. Results appear group by group so you can export Group 1 while Group 2 is scanning.</p>
+    </div>
+    <div class="card">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px">Version detection — three passes</div>
+      <div style="display:grid;gap:10px">
+        <div style="display:flex;gap:10px;align-items:start">
+          <span style="min-width:22px;height:22px;background:var(--blue);color:#fff;border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px">1</span>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:2px">Data Management API <span style="font-weight:400;color:var(--hint)">(automatic)</span></div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.6">Reads <code style="background:var(--surface2);padding:1px 4px;border-radius:3px;font-size:10px">revitProjectVersion</code> from the version response. Authoritative for all ACC-native and newer BIM 360 files. If present, no further passes are needed.</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:start">
+          <span style="min-width:22px;height:22px;background:var(--blue);color:#fff;border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px">2</span>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:2px">Model Derivative manifest <span style="font-weight:400;color:var(--hint)">(automatic, after each project)</span></div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.6">For RCW files with no version or an estimated version, queries the Model Derivative manifest. If the file was ever opened in the web viewer or published to the web, the manifest contains the exact Revit year under <code style="background:var(--surface2);padding:1px 4px;border-radius:3px;font-size:10px">Document Information → revitProductVersion</code>. Resolved files are marked <em>(MD)</em>. If the file was never translated, the manifest returns 404 and no version is set.</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:start">
+          <span style="min-width:22px;height:22px;background:var(--surface2);color:var(--text);border:1px solid var(--border2);border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px">3</span>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:2px">Deep Scan — OLE2 binary parse <span style="font-weight:400;color:var(--hint)">(manual, per group)</span></div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.6">Appears as a button in the group header when files remain unresolved after Passes 1 and 2. Downloads a slice of the raw <code style="background:var(--surface2);padding:1px 4px;border-radius:3px;font-size:10px">.rvt</code> binary via OSS Range requests and parses the OLE2 compound document structure to read the <code style="background:var(--surface2);padding:1px 4px;border-radius:3px;font-size:10px">BasicFileInfo</code> stream, which contains the <code style="background:var(--surface2);padding:1px 4px;border-radius:3px;font-size:10px">Format: YYYY</code> Revit version directly from the file. Works for any <code style="background:var(--surface2);padding:1px 4px;border-radius:3px;font-size:10px">.rvt</code> file regardless of age or translation status. Runs in the background and does not block other groups from scanning. Use when files show <em>No Version</em> or <em>(est.)</em> after scanning, especially on hubs with old BIM 360 projects that were never viewed in the browser.</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--hint);line-height:1.6;padding-top:6px;border-top:1px solid var(--border)">Files still unresolved after all three passes are flagged for manual verification in ACC. The date-inference fallback <em>(est.)</em> applies between Passes 2 and 3 for files within the inferrable range.</div>
+      </div>
     </div>
     <div class="card">
       <div style="font-size:13px;font-weight:700;margin-bottom:8px">Version</div>
