@@ -231,9 +231,9 @@ tr.risk-row:hover{background:rgba(220,38,38,0.05)}
 </div>
 <script>
 // ─── VERSION ──────────────────────────────────────────────────────────────────
-const VERSION='1.4.1';
+const VERSION='1.5.0';
 const RELEASE_DATE='2026-05-01';
-const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.4.1';
+const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.5.0';
 
 const APS='https://developer.api.autodesk.com';
 const OAUTH={
@@ -887,7 +887,7 @@ async function scanProject(proj,hub){
       return;
     }
 
-    let version=null,isC4R=false,modTime=null,modBy=null,versionFailed=false,inferredVersion=false,latest=null;
+    let version=null,isC4R=false,modTime=null,modBy=null,versionFailed=false,latest=null;
     try{
       const vd=await api('/data/v1/projects/'+proj.id+'/items/'+encodeURIComponent(item.id)+'/versions');
       latest=(vd.data||[])[0];
@@ -895,25 +895,7 @@ async function scanProject(proj,hub){
         const ext=latest.attributes?.extension?.type||'';
         isC4R=ext.toLowerCase().includes('c4r');
         const rv=latest.attributes?.extension?.data?.revitProjectVersion;
-        if(rv){
-          version=String(rv);
-        }else{
-          // revitProjectVersion absent — pre-2023 BIM 360 schema (v1.1.x/v1.2.x).
-          // Infer version year from lastModifiedTime: if the file was last published
-          // in year Y, it was almost certainly opened in Revit Y (or Y-1 at most).
-          // Infer version year from lastModifiedTime across all classifiable tiers:
-          //   < 2020 or ≤ threshold  → Critical  (pre-modern BIM 360 era, or at threshold)
-          //   threshold+1 or +2      → Outdated  (e.g. 2022/2023 with threshold=2021)
-          //   > threshold+2          → not inferred — can't assume "Current" without API data
-          const mt=latest.attributes?.lastModifiedTime;
-          if(mt){
-            const modYear=new Date(mt).getFullYear();
-            if(modYear<=S.threshold+2){
-              version=String(modYear);
-              inferredVersion=true;
-            }
-          }
-        }
+        if(rv)version=String(rv);
         modTime=latest.attributes?.lastModifiedTime;
         modBy=latest.attributes?.lastModifiedUserName;
       }
@@ -932,7 +914,7 @@ async function scanProject(proj,hub){
     const modelGuid=latest?.attributes?.extension?.data?.modelGuid||null;
     const versionUrn=latest?.id||null;
     const storageUrn=latest?.relationships?.storage?.data?.id||null;
-    const f={id:item.id,name,path:pathLabel,version,isC4R,modTime,modBy,inferredVersion,modelGuid,versionUrn,storageUrn};
+    const f={id:item.id,name,path:pathLabel,version,isC4R,modTime,modBy,modelGuid,versionUrn,storageUrn};
     if(isC4R)proj.c4rFiles.push(f);else proj.cloudFiles.push(f);
   }),CONCURRENCY.VERSION_FETCHES);
 }
@@ -1009,7 +991,7 @@ function _yearFromManifest(mf,logFull){
 
 async function manifestScan(proj){
   const unresolved=(proj.c4rFiles||[])
-    .filter(f=>f.versionUrn&&(f.version===null||f.inferredVersion));
+    .filter(f=>f.versionUrn&&f.version===null);
   if(!unresolved.length)return;
   proj.p3total=unresolved.length;
   proj.p3done=0;
@@ -1023,7 +1005,7 @@ async function manifestScan(proj){
       const doSample=!sampleLogged;sampleLogged=true;
       const yr=_yearFromManifest(mf,doSample);
       if(yr){
-        f.version=yr;f.inferredVersion=false;f.versionSource='manifest';
+        f.version=yr;f.versionSource='manifest';
         proj.p3resolved++;stats.resolved++;
         console.log('[MD manifest] resolved:',f.name,'→ Revit',yr);
       }else{
@@ -1038,12 +1020,12 @@ async function manifestScan(proj){
   console.log(`[MD manifest] ${proj.name} — ${unresolved.length} checked: ${stats.resolved} resolved, ${stats.notTranslated} not translated (404), ${stats.noData} translated/no version field, ${stats.error} errors`);
 }
 
-// ─── DEEP SCAN — OLE2 BINARY HEADER PARSE ────────────────────────────────────
-// Fetches a slice of the raw .rvt file via OSS signed URL + Range request and
-// scans the bytes for the BasicFileInfo stream content (UTF-16LE). That stream
-// always contains "Format: YYYY" (v2019+) or "Autodesk Revit YYYY" (older).
-// No server required, no OLE2 library — just a pattern search over the bytes.
-// Progressive chunk sizes: 64 KB → 256 KB → 1 MB, stopping as soon as found.
+// ─── PASS 4 — OLE2 BINARY HEADER PARSE ──────────────────────────────────────
+// Automatic pass after manifest check. Fetches a slice of the raw .rvt file via
+// OSS signed URL + Range request and scans the bytes for the BasicFileInfo
+// stream content (UTF-16LE). That stream always contains "Format: YYYY" (v2019+)
+// or "Autodesk Revit YYYY" (older). No server required, no OLE2 library.
+// Progressive chunk sizes: 64 KB → 256 KB → 1 MB → 5 MB, stopping as found.
 
 function _rvtYearFromBytes(buf){
   const b=new Uint8Array(buf);
@@ -1081,7 +1063,10 @@ function _rvtYearFromBytes(buf){
   return null;
 }
 
-async function _deepScanFile(f){
+// Chunk label map for per-chunk logging
+const _CHUNK_LABELS={65535:'64KB',262143:'256KB',1048575:'1MB',5242879:'5MB'};
+
+async function _deepScanFile(f,chunkStats){
   if(!f.storageUrn)return false;
   const body=f.storageUrn.replace('urn:adsk.objects:os.object:','');
   const slash=body.indexOf('/');
@@ -1092,36 +1077,38 @@ async function _deepScanFile(f){
     const d=await api('/oss/v2/buckets/'+encodeURIComponent(bucket)+'/objects/'+encodeURIComponent(objKey)+'/signeds3download?minutesExpiration=10');
     url=d.url;
     if(!url)return false;
-  }catch(e){console.log('[Deep Scan] signed URL failed:',e.status||e.message,f.name);return false;}
-  for(const end of[65535,262143,1048575]){
+  }catch(e){console.log('[Binary Scan] signed URL failed:',e.status||e.message,f.name);return false;}
+  for(const end of[65535,262143,1048575,5242879]){
     try{
       const r=await fetch(url,{headers:{Range:'bytes=0-'+end}});
       if(!r.ok&&r.status!==206)break;
       const yr=_rvtYearFromBytes(await r.arrayBuffer());
-      if(yr){f.version=yr;f.inferredVersion=false;f.versionSource='file-header';return true;}
-    }catch(e){console.log('[Deep Scan] range fetch failed:',e.message,f.name);break;}
+      if(yr){
+        f.version=yr;f.versionSource='file-header';
+        if(chunkStats)chunkStats[end]=(chunkStats[end]||0)+1;
+        return true;
+      }
+    }catch(e){console.log('[Binary Scan] range fetch failed:',e.message,f.name);break;}
   }
   f.deepScanFailed=true;
   return false;
 }
 
-async function runDeepScan(gi){
-  const grp=S.groups[gi];
-  if(!grp||grp.deepScanStatus==='running')return;
-  const projects=S.projects.slice(grp.start,grp.end);
-  const files=projects.flatMap(p=>(p.c4rFiles||[]))
-    .filter(f=>f.storageUrn&&(f.version===null||f.inferredVersion));
+async function binaryScan(proj){
+  const files=(proj.c4rFiles||[]).filter(f=>f.storageUrn&&f.version===null);
   if(!files.length)return;
-  grp.deepScanStatus='running';grp.dsTotal=files.length;grp.dsDone=0;grp.dsResolved=0;
-  render();
+  proj.p4total=files.length;proj.p4done=0;proj.p4resolved=0;
+  const chunkStats={};
   await pool(files.map(f=>async()=>{
     if(S.aborted)return;
-    const proj=projects.find(p=>(p.c4rFiles||[]).includes(f));
-    if(await _deepScanFile(f)&&proj)deriveProject(proj);
-    grp.dsDone++;if(f.versionSource==='file-header')grp.dsResolved++;
-    render();
+    if(await _deepScanFile(f,chunkStats))proj.p4resolved++;
+    proj.p4done++;
   }),3);
-  grp.deepScanStatus='done';render();
+  deriveProject(proj);
+  const breakdown=Object.entries(chunkStats)
+    .sort(([a],[b])=>Number(a)-Number(b))
+    .map(([k,v])=>`${_CHUNK_LABELS[k]||k}:${v}`).join(', ');
+  console.log(`[Binary Scan] ${proj.name} — ${files.length} checked: ${proj.p4resolved} resolved`+(breakdown?` (${breakdown})`:''));
 }
 
 // ─── HUB SCAN ─────────────────────────────────────────────────────────────────
@@ -1222,11 +1209,14 @@ async function scanHub(hub){
 
       deriveProject(proj);
 
-      // Pass 3 — manifest check (automatic, runs after Pass 2)
+      // Pass 3 — manifest check (automatic)
       if(!S.aborted){
         await manifestScan(proj);
         if((proj.p3resolved||0)>0)deriveProject(proj);
       }
+
+      // Pass 4 — binary OLE2 header parse (automatic, for still-unresolved C4R files)
+      if(!S.aborted)await binaryScan(proj);
 
       proj.scanning=false;
       grp.activeNames.delete(proj.name);
@@ -1331,7 +1321,6 @@ function demo(){
 // ─── INTERACTIONS ─────────────────────────────────────────────────────────────
 function sortBy(col){if(S.sortCol===col)S.sortDir*=-1;else{S.sortCol=col;S.sortDir=-1;}render();}
 function toggleGroup(id){const g=S.groups.find(x=>x.id===id);if(g)g.expanded=!g.expanded;render();}
-function triggerDeepScan(gi){runDeepScan(gi);}
 function toggleFilter(st){if(S.statusFilters.has(st))S.statusFilters.delete(st);else S.statusFilters.add(st);render();}
 function clearFilters(){S.statusFilters.clear();S.filterOpen=false;render();}
 function setThresh(y){S.threshold=y;localStorage.setItem('rvt_thresh',y);render();}
@@ -1364,7 +1353,7 @@ function exportCsv(groupIdx){
   for(const p of src){
     for(const f of(p.c4rFiles||[])){
       const risk=!f.version?'No Version':isAtRisk(f.version)?'Critical':parseInt(f.version)<=S.threshold+2?'Outdated':'Current';
-      const vsrc=f.versionSource==='file-header'?'File Header (OLE2)':f.versionSource==='manifest'?'Model Derivative':f.inferredVersion?'Estimated (date)':'API';
+      const vsrc=f.versionSource==='file-header'?'File Header (OLE2)':f.versionSource==='manifest'?'Model Derivative':'API';
       rows.push(row([p.name,f.name,f.version||'',vsrc,f.isCopy?'Yes':'No',risk,f.path||'',fDate(f.modTime),f.modBy||'']));
     }
   }
@@ -2081,19 +2070,13 @@ function rGroup(grp,gi){
     if(go>0)summaryHtml+=`<span class="gbadge gb-ok">${go} Current</span>`;
     if(!gc&&!gw&&!go)summaryHtml+=`<span class="gbadge gb-none">No RCW</span>`;
   }
-  const grpC4r=S.projects.slice(grp.start,grp.end).flatMap(p=>p.c4rFiles||[]);
-  const hasUnresolved=grp.status==="done"&&!grp.deepScanStatus&&grpC4r.some(f=>f.storageUrn&&(f.version===null||f.inferredVersion));
-  const dsPct=grp.dsTotal>0?Math.round((grp.dsDone/grp.dsTotal)*100):0;
   const exportBtns=grp.status==="done"?`
     <button class="btn btn-g btn-sm" onclick="event.stopPropagation();exportCsv(${gi})" title="Export group ${gi+1} to CSV">
       <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 11v2h10v-2M8 3v8M5 8l3 3 3-3"/></svg>CSV
     </button>
     <button class="btn btn-g btn-sm" onclick="event.stopPropagation();exportPdf(${gi})" title="Export group ${gi+1} to PDF">
       <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 1h6l4 4v10H4V1zM9 1v4h4M6 10h4M6 12h2"/></svg>PDF
-    </button>
-    ${hasUnresolved?`<button class="btn btn-g btn-sm" onclick="event.stopPropagation();triggerDeepScan(${gi})" title="Read Revit version directly from the .rvt binary file (OLE2 BasicFileInfo stream) for files unresolved by API or manifest" style="color:var(--blue)">
-      <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="8" r="5.5"/><path d="M8 5v3l2 1.5"/></svg>Deep Scan
-    </button>`:''}`:"";
+    </button>`:"";
   const isOpen=grp.expanded;
   const th=(col,lbl,w)=>`<th style="width:${w}" onclick="sortBy('${col}')">${lbl}${S.sortCol===col?(S.sortDir===1?" ↑":" ↓"):""}</th>`;
   const pct=grp.ptotal>0?Math.round((grp.pdone/grp.ptotal)*100):0;
@@ -2107,9 +2090,6 @@ function rGroup(grp,gi){
   </div>
   ${grp.status==="scanning"?`<div class="gprog-wrap"><div id="gpfill-${grp.id}" class="gpfill" style="width:${pct}%"></div></div>
   <div id="gpstats-${grp.id}" class="gpstats">${grp.pdone} done &middot; ${ac} scanning &middot; ${grp.ptotal-grp.pdone-ac} queued <span id="gpeta-${grp.id}" style="margin-left:8px;color:var(--hint)">${fmtEta(grp.eta)||""}</span></div>`:""}
-  ${grp.deepScanStatus==="running"?`<div class="gprog-wrap"><div class="gpfill" style="width:${dsPct}%;background:var(--blue)"></div></div>
-  <div class="gpstats" style="color:var(--blue)"><span class="spinner" style="width:9px;height:9px;margin-right:5px;border-color:var(--blue);border-top-color:transparent"></span>Deep scanning ${grp.dsDone} of ${grp.dsTotal} files&hellip; ${grp.dsResolved} resolved so far</div>`:""}
-  ${grp.deepScanStatus==="done"?`<div class="gpstats" style="color:var(--blue)">&#10003; Deep scan complete &mdash; ${grp.dsResolved} of ${grp.dsTotal} files resolved via binary header</div>`:""}
   ${isOpen?`<div class="group-body"><div style="overflow-x:auto"><table>
     <thead><tr>
       <th style="width:28px"></th>
@@ -2194,7 +2174,7 @@ function rRow(p){
               :`<span class="chip chip-ok" style="font-size:9px">Current</span>`;
         return`<tr class="${fc}">
           <td>${esc(f.name)}${f.isCopy?' <span style="font-size:9px;color:var(--hint);border:1px solid var(--border);border-radius:3px;padding:0 3px;margin-left:3px">copy</span>':''}</td>
-          <td><span class="vb ${vClass(f.version)}" style="font-size:10px;padding:1px 7px">${f.version||'—'}${f.versionSource==='file-header'?'<span style="font-size:9px;color:var(--green);opacity:0.9;margin-left:2px">(file)</span>':f.versionSource==='manifest'?'<span style="font-size:9px;color:var(--blue);opacity:0.9;margin-left:2px">(MD)</span>':f.inferredVersion?'<span style="font-size:9px;opacity:0.75;margin-left:2px">(est.)</span>':''}</span></td>
+          <td><span class="vb ${vClass(f.version)}" style="font-size:10px;padding:1px 7px">${f.version||'—'}</span></td>
           <td>${fchip}</td>
           <td style="font-size:11px" title="${esc(f.path||'')}">${esc(f.path||'—')}</td>
           <td>${fDate(f.modTime)}</td>
@@ -2231,12 +2211,7 @@ function rRow(p){
     const mdResolved=(p.c4rFiles||[]).filter(f=>f.versionSource==='manifest');
     if(mdResolved.length>0){
       html+=`<div style="margin:8px 0 4px;padding:8px 11px;background:rgba(59,130,246,0.06);border:1px dashed rgba(59,130,246,0.3);border-radius:5px;font-size:11px;color:var(--blue)">
-        <strong>${mdResolved.length} file${mdResolved.length!==1?'s':''} resolved via Model Derivative.</strong> The standard API version field was absent; Revit year was read from the file's translation manifest. Marked <em>(MD)</em> in the table.
-      </div>`;
-    }
-    if((p.c4rFiles||[]).some(f=>f.inferredVersion)){
-      html+=`<div style="margin:8px 0 4px;padding:8px 11px;background:rgba(180,83,9,0.06);border:1px dashed rgba(180,83,9,0.3);border-radius:5px;font-size:11px;color:var(--amber)">
-        <strong>Version estimated from file date.</strong> Files marked <em>(est.)</em> use the pre-2023 BIM 360 schema — <code style="background:rgba(180,83,9,0.1);padding:1px 4px;border-radius:3px;font-size:10px">revitProjectVersion</code> is absent from the API response and the file has not been translated (no Model Derivative manifest). The Revit year shown is inferred from the file's last-modified date and may be inaccurate for long-running projects. Use Deep Scan to attempt binary file header parsing.
+        <strong>${mdResolved.length} file${mdResolved.length!==1?'s':''} resolved via Model Derivative manifest.</strong> The standard API version field was absent; Revit year was read from the file's translation manifest.
       </div>`;
     }
     if((p.c4rFiles||[]).length>0&&!p.c4rVersion){
@@ -2253,13 +2228,13 @@ function rRow(p){
     const dsResolved=(p.c4rFiles||[]).filter(f=>f.versionSource==='file-header');
     if(dsResolved.length>0){
       html+=`<div style="margin:8px 0 4px;padding:8px 11px;background:rgba(34,197,94,0.06);border:1px dashed rgba(34,197,94,0.3);border-radius:5px;font-size:11px;color:var(--green)">
-        <strong>${dsResolved.length} file${dsResolved.length!==1?'s':''} resolved via binary file header.</strong> Revit version was read directly from the <code style="background:rgba(34,197,94,0.1);padding:1px 4px;border-radius:3px;font-size:10px">BasicFileInfo</code> stream in the .rvt file. Marked <em>(file)</em> in the table.
+        <strong>${dsResolved.length} file${dsResolved.length!==1?'s':''} resolved via binary file header.</strong> Revit version was read directly from the <code style="background:rgba(34,197,94,0.1);padding:1px 4px;border-radius:3px;font-size:10px">BasicFileInfo</code> stream in the .rvt file.
       </div>`;
     }
     const dsFailed=(p.c4rFiles||[]).filter(f=>f.deepScanFailed);
     if(dsFailed.length>0){
       html+=`<div style="margin:8px 0 4px;padding:8px 11px;background:rgba(180,83,9,0.06);border:1px dashed rgba(180,83,9,0.3);border-radius:5px;font-size:11px;color:var(--amber)">
-        <strong>${dsFailed.length} file${dsFailed.length!==1?'s':''} could not be resolved by any method.</strong> The DM API, Model Derivative manifest, and binary file header parse all returned no version. These files likely predate a range the parser can reach within 1 MB, or have an unusual file structure. Verify the Revit version manually in ACC or by opening the file in Revit.
+        <strong>${dsFailed.length} file${dsFailed.length!==1?'s':''} could not be resolved by any method.</strong> The DM API, Model Derivative manifest, and binary header parse (up to 5 MB) all returned no version. Verify the Revit version manually in ACC or by opening the file in Revit.
         <table class="xmini" style="margin-top:6px"><tbody>
         ${dsFailed.map(f=>`<tr><td>${esc(f.name)}</td><td style="font-size:11px">${esc(f.path||'')}</td></tr>`).join('')}
         </tbody></table>
@@ -2307,7 +2282,7 @@ function rAbout(){
         <span class="chip chip-mixed">Mixed</span><span style="color:var(--muted)">Multiple Revit versions found in the same project. Expand the row to inspect individual files.</span>
         <span class="chip chip-none">No RCW</span><span style="color:var(--muted)">No Cloud Workshared files found. Project is not affected by the deprecation.</span>
         <span class="chip chip-noaccess">No Access</span><span style="color:var(--muted)">Project listed by Admin API but file access was denied (403). See expanded row for details and resolution steps.</span>
-        <span class="chip chip-noversion">No Version</span><span style="color:var(--muted)">RCW files confirmed but Revit year could not be resolved from the API, Model Derivative manifest, or file date. Likely 2022 or older. Use Deep Scan or verify manually in ACC.</span>
+        <span class="chip chip-noversion">No Version</span><span style="color:var(--muted)">RCW files confirmed but Revit year could not be resolved after all three automatic passes (DM API, MD manifest, binary header). Verify manually in ACC.</span>
       </div>
     </div>
     <div class="card">
@@ -2337,17 +2312,17 @@ function rAbout(){
           <span style="min-width:22px;height:22px;background:var(--blue);color:#fff;border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px">2</span>
           <div>
             <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:2px">Model Derivative manifest <span style="font-weight:400;color:var(--hint)">(automatic, after each project)</span></div>
-            <div style="font-size:12px;color:var(--muted);line-height:1.6">For RCW files with no version or an estimated version, queries the Model Derivative manifest. If the file was ever opened in the web viewer or published to the web, the manifest contains the exact Revit year under <code style="background:var(--surface2);padding:1px 4px;border-radius:3px;font-size:10px">Document Information → revitProductVersion</code>. Resolved files are marked <em>(MD)</em>. If the file was never translated, the manifest returns 404 and no version is set.</div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.6">For RCW files where <code style="background:var(--surface2);padding:1px 4px;border-radius:3px;font-size:10px">revitProjectVersion</code> was absent from Pass 1, queries the Model Derivative manifest. If the file was ever opened in the web viewer or published to the web, the manifest contains the exact Revit year under <code style="background:var(--surface2);padding:1px 4px;border-radius:3px;font-size:10px">Document Information → revitProductVersion</code>. If the file was never translated, the manifest returns 404 and the file proceeds to Pass 3.</div>
           </div>
         </div>
         <div style="display:flex;gap:10px;align-items:start">
-          <span style="min-width:22px;height:22px;background:var(--surface2);color:var(--text);border:1px solid var(--border2);border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px">3</span>
+          <span style="min-width:22px;height:22px;background:var(--blue);color:#fff;border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px">3</span>
           <div>
-            <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:2px">Deep Scan — OLE2 binary parse <span style="font-weight:400;color:var(--hint)">(manual, per group)</span></div>
-            <div style="font-size:12px;color:var(--muted);line-height:1.6">Appears as a button in the group header when files remain unresolved after Passes 1 and 2. Downloads a slice of the raw <code style="background:var(--surface2);padding:1px 4px;border-radius:3px;font-size:10px">.rvt</code> binary via OSS Range requests and parses the OLE2 compound document structure to read the <code style="background:var(--surface2);padding:1px 4px;border-radius:3px;font-size:10px">BasicFileInfo</code> stream, which contains the <code style="background:var(--surface2);padding:1px 4px;border-radius:3px;font-size:10px">Format: YYYY</code> Revit version directly from the file. Works for any <code style="background:var(--surface2);padding:1px 4px;border-radius:3px;font-size:10px">.rvt</code> file regardless of age or translation status. Runs in the background and does not block other groups from scanning. Use when files show <em>No Version</em> or <em>(est.)</em> after scanning, especially on hubs with old BIM 360 projects that were never viewed in the browser.</div>
+            <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:2px">Binary file header (OLE2) <span style="font-weight:400;color:var(--hint)">(automatic, after each project)</span></div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.6">For RCW files still unresolved after Passes 1 and 2, downloads a slice of the raw <code style="background:var(--surface2);padding:1px 4px;border-radius:3px;font-size:10px">.rvt</code> binary via OSS Range requests and reads the <code style="background:var(--surface2);padding:1px 4px;border-radius:3px;font-size:10px">BasicFileInfo</code> stream in the OLE2 compound document. That stream contains <code style="background:var(--surface2);padding:1px 4px;border-radius:3px;font-size:10px">Format: YYYY</code> (v2019+) or a <code style="background:var(--surface2);padding:1px 4px;border-radius:3px;font-size:10px">Autodesk Revit YYYY</code> build string (older). Works for any <code style="background:var(--surface2);padding:1px 4px;border-radius:3px;font-size:10px">.rvt</code> file regardless of age or translation status. Reads progressively larger chunks (64 KB → 256 KB → 1 MB → 5 MB) stopping as soon as the version is found.</div>
           </div>
         </div>
-        <div style="font-size:11px;color:var(--hint);line-height:1.6;padding-top:6px;border-top:1px solid var(--border)">Files still unresolved after all three passes are flagged for manual verification in ACC. The date-inference fallback <em>(est.)</em> applies between Passes 2 and 3 for files within the inferrable range.</div>
+        <div style="font-size:11px;color:var(--hint);line-height:1.6;padding-top:6px;border-top:1px solid var(--border)">Files still unresolved after all three passes are flagged for manual verification in ACC.</div>
       </div>
     </div>
     <div class="card">

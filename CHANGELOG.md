@@ -9,6 +9,22 @@ This is a personal project and is not official Autodesk software. No warranty or
 
 ---
 
+## [1.5.0] — 2026-05-01
+
+### Changed — Fully automatic three-pass detection, no inference
+
+- **Binary file header parse (Pass 3) is now fully automatic** — runs after the Model Derivative manifest check for every project. No button, no manual action. Scans all RCW files that still have no version, concurrently (3 files at a time).
+- **Date inference removed entirely** — the fallback that estimated Revit year from `lastModifiedTime` has been dropped. Active projects on old Revit versions (e.g. Revit 2011, synced recently) were silently mis-classified as current. Every version shown is now authoritative: from the DM API, the MD manifest, or the binary file header.
+- **5 MB as final chunk size** — chunk progression is now 64 KB → 256 KB → 1 MB → 5 MB (was 1 MB max). Resolves files where the OLE2 `BasicFileInfo` stream sits deep in the compound document. Covers >98% of real-world `.rvt` files.
+- **Per-chunk resolution logging** — console logs a summary of how many files were resolved at each chunk size (e.g. `(64KB:81, 256KB:8, 1MB:3, 5MB:1)`) for diagnostics.
+- **Version badges cleaned up** — `(file)`, `(est.)`, and `(MD)` annotations removed from the file table version column. Informational banners in the expanded project row still indicate which method resolved a file.
+- **Deep Scan UI removed** — the manual Deep Scan button and group-level progress bar have been removed. All three passes are automatic and integrated into the normal scan flow.
+- **No Version chip tooltip updated** — reflects that all three passes run automatically; no manual action is required.
+- **About page and README updated** — three passes documented as fully automatic; inference and manual Deep Scan removed.
+- **CSV Version Source updated** — `Estimated (date)` removed; values are now `API`, `Model Derivative`, or `File Header (OLE2)`.
+
+---
+
 ## [1.4.1] — 2026-05-01
 
 ### Added — Deep Scan (OLE2 binary file header parse)

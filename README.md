@@ -1,6 +1,6 @@
 # Revit Version Checker
 
-[![Version](https://img.shields.io/badge/version-1.4.0-blue)](https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.4.0)
+[![Version](https://img.shields.io/badge/version-1.5.0-blue)](https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.5.0)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 **Scan every project in an Autodesk Forma / ACC hub for Revit cloud worksharing deprecation risk — no server required.**
@@ -37,7 +37,7 @@ Finding affected projects manually — hub by hub, project by project — is imp
 | Proactive rate limiting | Token bucket refills at a steady rate (100/min 3-legged, 180/min 2-legged); waits are spread evenly — no burst/stall cycles |
 | Token auto-refresh | Silently refreshes between groups — scans survive past the 1-hour token expiry |
 | Per-request timeout | 30s AbortController on every fetch; hung connections abort and retry rather than stalling |
-| Three-pass version detection | P1: DM API. P2: Model Derivative manifest for unresolved files. Deep Scan: OLE2 binary header parse (manual, per group) |
+| Three-pass version detection | P1: DM API. P2: Model Derivative manifest. P3: OLE2 binary header parse. All automatic, no manual action required |
 | Threshold picker | Choose 2021 or 2022 as the critical cutoff; all tiers adjust instantly without re-scanning |
 | Multi-status filter | Combine any statuses (e.g. Critical + Outdated) for targeted exports |
 | Accuracy statement | PDF includes file-level accuracy % and caveats for inaccessible folders/projects |
@@ -58,7 +58,7 @@ With the default threshold set to **2021**:
 | 🔴 **Critical** | ≤ 2021 (at or below threshold) | Upgrade before FY27 Q3/Q4 |
 | 🟣 **Mixed** | Multiple C4R versions in same project | Expand row to inspect files individually |
 | ⚫ **No RCW** | No Cloud Workshared files found | Not affected by the deprecation |
-| 🟠 **No Version** | RCW confirmed, year not in API | Pre-2023 schema — inferred from file date if possible, otherwise verify manually |
+| 🟠 **No Version** | RCW confirmed, year unresolved | Pre-2023 schema — all three automatic passes returned no version; verify manually in ACC |
 | 🔘 **No Access** | Project visible but files inaccessible | See [Troubleshooting](#troubleshooting) |
 
 Set threshold to **2022** to shift all bands: Critical ≤ 2022, Outdated 2023–2024, Current ≥ 2025.
@@ -67,43 +67,23 @@ Only **RCW (Revit Cloud Workshared)** models count toward risk. Plain cloud uplo
 
 ### Three-pass version detection for pre-2023 files
 
-The `revitProjectVersion` field was added to the APS API response in the C4R extension schema v1.3.x (circa 2023). Files on schema v1.1.x or v1.2.x — which covers most BIM 360 files created before 2023 — do not include this field. The tool runs three passes to recover the version when it is missing.
+The `revitProjectVersion` field was added to the APS API response in the C4R extension schema v1.3.x (circa 2023). Files on schema v1.1.x or v1.2.x — which covers most BIM 360 files created before 2023 — do not include this field. The tool runs three automatic passes to recover the version when it is missing.
 
 #### Pass 1 — Data Management API (automatic)
 
 Every RCW file gets a version call. If `revitProjectVersion` is present, the version is authoritative and no further passes are needed. This covers all ACC-native files (2023+) and newer BIM 360 files.
 
-#### Pass 2 — Model Derivative manifest (automatic, per group)
+#### Pass 2 — Model Derivative manifest (automatic, per project)
 
-For any RCW file where Pass 1 returned no version or returned a date-estimated version, the tool calls the APS Model Derivative manifest endpoint (`GET /modelderivative/v2/designdata/{urn}/manifest`). If the file has been opened in the web viewer or published via Revit to the web, the manifest may contain `revitProductVersion` under `Document Information`, which gives the exact Revit year.
+For any RCW file where Pass 1 returned no version, the tool calls the APS Model Derivative manifest endpoint (`GET /modelderivative/v2/designdata/{urn}/manifest`). If the file has been opened in the web viewer or published via Revit to the web, the manifest may contain `revitProductVersion` under `Document Information`, which gives the exact Revit year. If the file was never translated, the manifest returns 404 and the file moves to Pass 3.
 
-Files resolved in Pass 2 are marked **(MD)** in the expanded file row. A blue info banner in the project detail confirms how many files were resolved this way.
+#### Pass 3 — Binary file header parse / OLE2 (automatic, per project)
 
-This pass is especially important for the highest-risk scenario: **active projects still running old Revit versions (2011–2022) that have a recent `lastModifiedTime`**. Date inference would incorrectly classify these as current; the manifest returns the real version.
+For RCW files still unresolved after Passes 1 and 2, the tool fetches a slice of the raw `.rvt` binary via the OSS signed URL + HTTP Range request and parses the OLE2 compound document structure to read the `BasicFileInfo` stream. That stream always contains `Format: YYYY` (Revit 2019+) or an `Autodesk Revit YYYY` build string (older). This works for any `.rvt` file regardless of age or whether it has ever been opened in the web viewer.
 
-#### Date inference fallback (after Pass 2)
+The parse uses progressive chunk sizes (64 KB → 256 KB → 1 MB → 5 MB), stopping as soon as the version is found. Over 95% of files resolve within the first chunk; the 5 MB final attempt covers deep OLE2 structures in large files.
 
-If neither pass resolves the version, the tool falls back to inferring from `lastModifiedTime`:
-
-| Modified date | Inferred classification |
-|---|---|
-| ≤ threshold year (e.g. ≤ 2021) | **Critical** — version set to modification year |
-| threshold+1 or threshold+2 (e.g. 2022–2023) | **Outdated** — version set to modification year |
-| > threshold+2 (e.g. ≥ 2024) | **No Version** — cannot safely assume Current without proof |
-| Before 2020 (any threshold) | **Critical** — pre-modern BIM 360 era |
-
-Inferred versions are marked **(est.)** in the expanded file row. Treat these as requiring verification — the inference is unreliable for long-running projects opened regularly in an old Revit version.
-
-#### Deep Scan — OLE2 binary header parse (manual, per group)
-
-After a group finishes scanning, a **Deep Scan** button appears in the group header if any RCW files still have no resolved version. Clicking it parses the raw `.rvt` binary file (OLE2 compound document format) directly via the OSS storage API, reading the `BasicFileInfo` stream which always contains the exact `Format: YYYY` Revit version year.
-
-Deep Scan reads the file in progressive chunks (64 KB → 256 KB → 1 MB) and runs in the background — it does not block other groups from scanning in parallel. Files resolved via Deep Scan are marked **(file)** in the table. Files that remain unresolved after all three passes are flagged for manual review in ACC.
-
-**When to use Deep Scan:**
-- You have many files still showing **No Version** or **(est.)** after the group scan completes
-- The hub has old BIM 360 projects where files were never opened in the web viewer (no manifest exists)
-- You need high-confidence version data before reporting to stakeholders or planning upgrade cycles
+Files still unresolved after all three passes show **No Version** and are flagged for manual verification in ACC.
 
 ---
 
@@ -218,31 +198,28 @@ scanHub()
      └─ pool(projects, 3–4)      3 parallel (3-legged) or 4 (2-legged)
          └─ scanProject()
              ├─ topFolders call  — skip known non-RVT folders immediately
-             ├─ Pass 1: Parallel BFS folder walk (3 folders at once)
+             ├─ Pass 1a: Parallel BFS folder walk (3 folders at once)
              │    Queue ordered by FOLDER_PRIORITY (Project Files → Shared → disciplines → other)
              │    SKIP_FOLDERS applied at every depth (Archive, Old, Specs, Admin, etc.)
              │    MAX_FOLDER_DEPTH=4 — never descends beyond discipline/phase/subphase
              │    Collects all .rvt items (hidden:true filtered); GUID-named files → systemFiles[]
-             ├─ Pass 2a: DM API version fetches — pool(allRvtItems, 8)
+             ├─ Pass 1b: DM API version fetches — pool(allRvtItems, 8)
              │    /items/{id}/versions → extension.type → RCW or RC
              │                        → revitProjectVersion → authoritative year (done)
-             │                        → if absent: infer year from lastModifiedTime (est.)
-             └─ Pass 2b: Model Derivative manifest check — automatic, per project
-                  Runs for all RCW files with no version or an estimated version
-                  GET /modelderivative/v2/designdata/{urn}/manifest
-                  → derivatives[].properties["Document Information"].revitProductVersion
-                  → if found: replaces estimate, marks (MD)
-                  → if not found (file not translated): keeps inferred or No Version
-
-     [After group completes] ── Deep Scan button appears if any RCW files remain unresolved
-         └─ triggerDeepScan()    Manual, non-blocking — runs in background while next group scans
-             For each unresolved RCW file:
-             ├─ GET /oss/v2/buckets/{bucket}/objects/{key}/signeds3download → signed URL
-             ├─ Attempt 1: Range 0–64 KB  → parse OLE2 header → find BasicFileInfo stream
-             ├─ Attempt 2: Range 0–256 KB → retry if stream not in first chunk
-             ├─ Attempt 3: Range 0–1 MB   → retry
-             └─ BasicFileInfo (UTF-16LE): "Format: YYYY" → authoritative year, marks (file)
-                  → if still not found: deepScanFailed — verify manually in ACC
+             │                        → if absent: version = null → pass to P2
+             ├─ Pass 2: Model Derivative manifest check — automatic, per project
+             │    Runs for all RCW files where version is null
+             │    GET /modelderivative/v2/designdata/{urn}/manifest
+             │    → derivatives[].properties["Document Information"].revitProductVersion
+             │    → if found: version resolved
+             │    → if 404 (file not translated): version stays null → pass to P3
+             └─ Pass 3: Binary OLE2 header parse — automatic, per project
+                  Runs for all RCW files still with version null
+                  GET /oss/v2/buckets/{bucket}/objects/{key}/signeds3download → signed URL
+                  Progressive Range requests: 64 KB → 256 KB → 1 MB → 5 MB
+                  Searches UTF-16LE bytes for "Format: YYYY" or "Autodesk Revit YYYY"
+                  → if found: version resolved
+                  → if not found after 5 MB: deepScanFailed — verify manually in ACC
 ```
 
 ### Folder walk optimisations
@@ -302,7 +279,7 @@ Failed files (version call failed after all retries) appear in each project's ex
 | Project summary | Project, Status, RCW Files, At Risk Files, RC Files, Version(s), Last Modified, ACC Link |
 | Per-file detail | Project, File, Version, Version Source, Is Copy, Risk, Path, Last Modified, Modified By |
 
-**Version Source** values: `API` (authoritative from DM API), `Model Derivative` (resolved from MD manifest in Pass 2), `Estimated (date)` (inferred from last-modified date — verify before acting on), or blank (No Version — manual review needed).
+**Version Source** values: `API` (authoritative from DM API), `Model Derivative` (resolved from MD manifest in Pass 2), `File Header (OLE2)` (resolved from binary header in Pass 3), or blank (No Version — manual review needed).
 
 Both exports respect the active search, status filter, and sort order.
 
@@ -323,13 +300,7 @@ The tool auto-refreshes between groups (every ~100 projects). If a single projec
 Verify your APS app type is **Traditional Web App** or **Service App (M2M)** — Single-Page App does not generate a Client Secret. Also verify the app is registered as a Custom Integration in ACC Hub Admin.
 
 **Projects show "No Version" despite being RCW**
-These files use the pre-2023 BIM 360 schema where `revitProjectVersion` is absent. The tool automatically runs a Model Derivative manifest check after the DM API pass — if the file has been opened in the web viewer, the manifest may resolve the version (shown as `(MD)`). If neither pass resolves it, the version is inferred from the file's last-modified date where possible (≤ threshold+2 years), or remains **No Version** if the date is inconclusive. Use **Deep Scan** (button in the group header after scanning completes) to attempt reading the version directly from the `.rvt` binary file.
-
-**Files show "(est.)" next to their version**
-The version year was inferred from the file's modification date after both the DM API and Model Derivative manifest returned no data. This occurs on pre-2023 schema files that have never been opened in the web viewer. The inference is unreliable for long-running projects (a file still used in Revit 2019 but synced recently will appear as current year). Run **Deep Scan** from the group header to attempt binary file header parsing for these files — this reads the `Format:` field from the OLE2 `BasicFileInfo` stream, which is always authoritative.
-
-**Deep Scan button does not appear**
-The button only appears after a group finishes scanning and there are RCW files with no resolved version or an estimated version. If all files were resolved via the DM API or Model Derivative manifest, no Deep Scan is needed.
+These files use the pre-2023 BIM 360 schema where `revitProjectVersion` is absent. The tool automatically runs three passes after the DM API: a Model Derivative manifest check (Pass 2) and a binary OLE2 header parse (Pass 3, up to 5 MB). If all three passes return no data, the project shows **No Version**. This is rare and typically indicates a corrupt or non-standard `.rvt` file — verify the Revit version manually by opening the file in Revit or inspecting the file properties in ACC.
 
 **Many "timed out after 5 minutes"**
 Usually indicates a project with an unusually deep or large folder structure. The depth limit (4 levels) and skip list should prevent most of these. Check the expanded row for `skippedFolders` count — if high, the project may have restricted subfolders.
