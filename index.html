@@ -153,6 +153,7 @@ tbody td{padding:10px 14px;font-size:13px;overflow:hidden;text-overflow:ellipsis
 .gb-warn{background:var(--amber-dim);color:var(--amber)}
 .gb-ok{background:var(--green-dim);color:var(--green)}
 .gb-none{background:var(--surface2);color:var(--hint);border:1px solid var(--border)}
+.gb-noversion{background:rgba(180,83,9,0.1);color:var(--amber)}
 .gprog-wrap{height:3px;background:var(--surface3);overflow:hidden}
 .gpfill{height:100%;background:var(--blue);transition:width 0.35s ease}
 .gpstats{font-size:11px;color:var(--hint);padding:6px 15px 8px}
@@ -2059,6 +2060,7 @@ function rGroup(grp,gi){
   const gc=gProjects.filter(p=>pStatus(p)==="critical").length;
   const gw=gProjects.filter(p=>pStatus(p)==="warn").length;
   const go=gProjects.filter(p=>pStatus(p)==="ok").length;
+  const gnv=gProjects.filter(p=>pStatus(p)==="no-version").length;
   let summaryHtml="";
   if(grp.status==="pending"){
     summaryHtml=`<span class="chip chip-pending" style="font-size:10px">${grp.ptotal} queued</span>`;
@@ -2068,7 +2070,8 @@ function rGroup(grp,gi){
     if(gc>0)summaryHtml+=`<span class="gbadge gb-crit">${gc} Critical</span>`;
     if(gw>0)summaryHtml+=`<span class="gbadge gb-warn">${gw} Outdated</span>`;
     if(go>0)summaryHtml+=`<span class="gbadge gb-ok">${go} Current</span>`;
-    if(!gc&&!gw&&!go)summaryHtml+=`<span class="gbadge gb-none">No RCW</span>`;
+    if(gnv>0)summaryHtml+=`<span class="gbadge gb-noversion">${gnv} No Version</span>`;
+    if(!gc&&!gw&&!go&&!gnv)summaryHtml+=`<span class="gbadge gb-none">No RCW</span>`;
   }
   const exportBtns=grp.status==="done"?`
     <button class="btn btn-g btn-sm" onclick="event.stopPropagation();exportCsv(${gi})" title="Export group ${gi+1} to CSV">
@@ -2214,11 +2217,6 @@ function rRow(p){
         <strong>${mdResolved.length} file${mdResolved.length!==1?'s':''} resolved via Model Derivative manifest.</strong> The standard API version field was absent; Revit year was read from the file's translation manifest.
       </div>`;
     }
-    if((p.c4rFiles||[]).length>0&&!p.c4rVersion){
-      html+=`<div style="margin:8px 0 4px;padding:8px 11px;background:rgba(180,83,9,0.06);border:1px dashed rgba(180,83,9,0.3);border-radius:5px;font-size:11px;color:var(--amber)">
-        <strong>Revit year could not be determined.</strong> These are confirmed RCW files but neither <code style="background:rgba(180,83,9,0.1);padding:1px 4px;border-radius:3px;font-size:10px">revitProjectVersion</code> nor a usable modification date was available. Verify the Revit version manually in ACC.
-      </div>`;
-    }
     if(p.noAccess){
       const msg=S.authMode==='2-legged'
         ?'The app token was denied access to this project (403). Ensure the APS app is registered as a Custom Integration in ACC Hub Admin and that the integration has the required permissions.'
@@ -2231,12 +2229,15 @@ function rRow(p){
         <strong>${dsResolved.length} file${dsResolved.length!==1?'s':''} resolved via binary file header.</strong> Revit version was read directly from the <code style="background:rgba(34,197,94,0.1);padding:1px 4px;border-radius:3px;font-size:10px">BasicFileInfo</code> stream in the .rvt file.
       </div>`;
     }
-    const dsFailed=(p.c4rFiles||[]).filter(f=>f.deepScanFailed);
-    if(dsFailed.length>0){
+    const noVersionFiles=(p.c4rFiles||[]).filter(f=>!f.version);
+    if(noVersionFiles.length>0){
       html+=`<div style="margin:8px 0 4px;padding:8px 11px;background:rgba(180,83,9,0.06);border:1px dashed rgba(180,83,9,0.3);border-radius:5px;font-size:11px;color:var(--amber)">
-        <strong>${dsFailed.length} file${dsFailed.length!==1?'s':''} could not be resolved by any method.</strong> The DM API, Model Derivative manifest, and binary header parse (up to 5 MB) all returned no version. Verify the Revit version manually in ACC or by opening the file in Revit.
-        <table class="xmini" style="margin-top:6px"><tbody>
-        ${dsFailed.map(f=>`<tr><td>${esc(f.name)}</td><td style="font-size:11px">${esc(f.path||'')}</td></tr>`).join('')}
+        <strong>${noVersionFiles.length} RCW file${noVersionFiles.length!==1?'s':''} with no version — verify manually in ACC.</strong> All automatic passes returned no version for these files.
+        <table class="xmini" style="margin-top:6px"><thead><tr>
+          <td style="color:var(--amber);opacity:0.7;font-size:9px;text-transform:uppercase;padding-bottom:3px;width:40%">File</td>
+          <td style="color:var(--amber);opacity:0.7;font-size:9px;text-transform:uppercase;padding-bottom:3px">Path</td>
+        </tr></thead><tbody>
+        ${noVersionFiles.map(f=>`<tr><td>${esc(f.name)}</td><td style="font-size:11px;color:var(--muted)">${esc(f.path||'—')}</td></tr>`).join('')}
         </tbody></table>
       </div>`;
     }
