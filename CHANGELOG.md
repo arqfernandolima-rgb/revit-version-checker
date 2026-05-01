@@ -9,6 +9,17 @@ This is a personal project and is not official Autodesk software. No warranty or
 
 ---
 
+## [1.3.2] — 2026-05-01
+
+### Added — Pass 3 manifest check (automatic)
+- **Automatic Model Derivative manifest scan** runs after Pass 2 for every project. Files where `revitProjectVersion` was absent from the DM API (pre-2023 BIM 360 schema) are now checked against the APS Model Derivative manifest. If the file has been translated and the manifest contains `revitProductVersion` under `Document Information`, the Revit year is extracted and applied. Marked `(MD)` in the file table and `Model Derivative` in CSV export.
+- **Version Source column in CSV** replaces the `Estimated` column — now shows `API`, `Model Derivative`, or `Estimated (date)` so the data lineage is explicit in exports.
+- **Deep Scan button** (stub, per group) — appears after a group finishes when unresolved files remain. Will trigger OLE2 binary file header parsing in the next release.
+- **Manifest-resolved banner** — project detail shows a blue info strip when files were resolved via Model Derivative, separate from the amber `(est.)` warning for date-inferred files.
+- **Updated `(est.)` warning text** — now explicitly notes that Model Derivative was checked first and suggests Deep Scan for remaining unknowns.
+
+---
+
 ## [1.3.1] — 2026-04-30
 
 ### Fixed / Changed — CSV export
