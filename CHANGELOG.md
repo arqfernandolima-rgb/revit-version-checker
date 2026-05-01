@@ -6,6 +6,20 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.3.1] — 2026-04-30
+
+### Fixed / Changed — CSV export
+- **UTF-8 BOM added** — Excel was rendering `—` and accented characters as `â€"` / garbage because it was reading the file as Windows-1252. A BOM (`﻿`) at the start of the file signals UTF-8 to Excel explicitly.
+- **Switched from `data:` URL to Blob URL** — `encodeURIComponent` on a large CSV can exceed browser URL length limits on big hubs. `URL.createObjectURL` is the correct approach; object URL is revoked after 1s.
+- **Column mismatch fixed** — project summary rows (7 cols) and file detail rows (8 cols) shared the same header, so nothing aligned in the spreadsheet. The CSV now has two clearly labelled sections (`PROJECT SUMMARY` / `RCW FILE DETAIL`), each with its own header row and consistent column count.
+- **Em-dash replaced with empty cell** — `—` used as a null placeholder was both causing encoding issues and making numeric columns non-sortable in Excel. All null/missing values now produce empty cells.
+- **ACC Link column added** — project summary rows include the direct ACC URL for each project.
+- **Estimated and Is Copy columns added** — file detail rows now include `Estimated` (Yes/No — version inferred from mod date) and `Is Copy` (Yes/No — Design Collaboration copy vs source model).
+- **RCW Version(s) shows all versions** — mixed-version projects now list all distinct versions (e.g. `2021 / 2023`) instead of `MIXED`.
+- **Risk column uses full tier labels** — file rows now show `Critical / Outdated / Current / No Version` instead of `Critical / OK`.
+
+---
+
 ## [1.3.0] — 2026-04-30
 
 ### Changed

@@ -42,7 +42,7 @@ Finding affected projects manually — hub by hub, project by project — is imp
 | Multi-status filter | Combine any statuses (e.g. Critical + Outdated) for targeted exports |
 | Accuracy statement | PDF includes file-level accuracy % and caveats for inaccessible folders/projects |
 | PDF report | Landscape A4, colour-coded rows and status badges, clickable ACC links, per-group or hub-wide |
-| CSV export | Project summary + per-file RCW detail, filter-aware, per-group or hub-wide |
+| CSV export | Two-section layout (Project Summary + RCW File Detail), ACC links, Estimated/Is Copy flags, UTF-8 safe, per-group or hub-wide |
 | Demo mode | Sample projects covering every status tier — no login required |
 
 ---

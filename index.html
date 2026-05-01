@@ -231,9 +231,9 @@ tr.risk-row:hover{background:rgba(220,38,38,0.05)}
 </div>
 <script>
 // ─── VERSION ──────────────────────────────────────────────────────────────────
-const VERSION='1.3.0';
+const VERSION='1.3.1';
 const RELEASE_DATE='2026-04-30';
-const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.3.0';
+const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.3.1';
 
 const APS='https://developer.api.autodesk.com';
 const OAUTH={
@@ -1182,20 +1182,40 @@ function navTo(p){S.phase=(p==='scan')?(S.hub?'dash':'setup'):p;render();}
 function exportCsv(groupIdx){
   const lbl={critical:'Critical',warn:'Outdated',ok:'Current',mixed:'Mixed','no-c4r':'No RCW','no-access':'No Access','no-version':'No Version (RCW)',scanning:'Scanning'};
   const src=groupIdx!=null?S.projects.slice(S.groups[groupIdx].start,S.groups[groupIdx].end):S.projects;
-  const gLabel=groupIdx!=null?` (${S.groups[groupIdx].label})`:'';
-  let csv='Project,RCW Version,RCW Files,At Risk Files,RC Files,Status,Last Modified\n';
+
+  // Quote a single cell value — converts null/em-dash to empty, escapes internal quotes
+  const q=v=>`"${String(v==null||v==='—'?'':v).replace(/"/g,'""')}"`;
+  const row=cols=>cols.map(q).join(',');
+  const rows=[];
+
+  // ── Section 1: Project Summary ─────────────────────────────────────────────
+  rows.push(row(['PROJECT SUMMARY']));
+  rows.push(row(['Project','Status','RCW Models (Unique)','At Risk','RC Files','RCW Version(s)','Last Modified','ACC Link']));
   for(const p of src){
-    const ar=atRiskCount(p);
-    csv+=[p.name,p.c4rVersion||'—',p.c4rCount,ar,p.cloudCount,lbl[pStatus(p)]||'',fDate(p.lastMod)]
-          .map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')+'\n';
-    for(const f of(p.c4rFiles||[]))
-      csv+=[p.name,'RCW',f.name,f.version||'—',isAtRisk(f.version)?'Critical':'OK',f.path||'—',fDate(f.modTime),f.modBy||'—']
-            .map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')+'\n';
+    const vers=(p.c4rVersions&&p.c4rVersions.length)?p.c4rVersions.join(' / '):(p.c4rVersion||'');
+    rows.push(row([p.name,lbl[pStatus(p)]||'',p.c4rCount,atRiskCount(p),p.cloudCount,vers,fDate(p.lastMod),p.accUrl||'']));
   }
+
+  rows.push(''); // blank separator
+
+  // ── Section 2: RCW File Detail ─────────────────────────────────────────────
+  rows.push(row(['RCW FILE DETAIL']));
+  rows.push(row(['Project','File','Version','Estimated','Is Copy','Risk','Path','Last Modified','Modified By']));
+  for(const p of src){
+    for(const f of(p.c4rFiles||[])){
+      const risk=!f.version?'No Version':isAtRisk(f.version)?'Critical':parseInt(f.version)<=S.threshold+2?'Outdated':'Current';
+      rows.push(row([p.name,f.name,f.version||'',f.inferredVersion?'Yes':'No',f.isCopy?'Yes':'No',risk,f.path||'',fDate(f.modTime),f.modBy||'']));
+    }
+  }
+
+  // UTF-8 BOM ensures Excel opens with correct encoding (fixes em-dash and accented chars)
+  const blob=new Blob(['﻿'+rows.join('\n')],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
-  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.href=url;
   a.download=`revit-checker-${(S.hub?.name||'hub').replace(/[^a-z0-9]/gi,'-')}${groupIdx!=null?'-g'+(groupIdx+1):''}-${new Date().toISOString().split('T')[0]}.csv`;
   a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 
 // ─── PDF EXPORT ───────────────────────────────────────────────────────────────
