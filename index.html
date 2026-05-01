@@ -232,9 +232,9 @@ tr.risk-row:hover{background:rgba(220,38,38,0.05)}
 </div>
 <script>
 // ─── VERSION ──────────────────────────────────────────────────────────────────
-const VERSION='1.5.9';
+const VERSION='1.6.0';
 const RELEASE_DATE='2026-05-01';
-const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.5.9';
+const CHANGELOG_URL='https://github.com/arqfernandolima-rgb/revit-version-checker/releases/tag/v1.6.0';
 
 const APS='https://developer.api.autodesk.com';
 const OAUTH={
@@ -1116,37 +1116,22 @@ async function binaryScan(proj){
 
 // ─── HUB SCAN ─────────────────────────────────────────────────────────────────
 async function loadHubProjects(hub){
-  S.hub=hub;S.allAdminProjects=[];S.error=null;
-  S.phase='projects';render();
+  S.hub=hub;S.allAdminProjects=[];S.projects=[];S.error=null;
+  S.phase='dash';render();
   const accountId=hub.id.replace(/^b\./,'');
   try{S.allAdminProjects=await getAllAdminProjects(accountId);}
   catch(e){S.error=e.message;S.phase='hubs';render();return;}
-  startScan();
-}
-
-async function startScan(){
-  const hub=S.hub;
-  S.projects=[];S.scanning=true;S.aborted=false;
-  S.pct=0;S.pdone=0;S.error=null;S.phase='dash';S.tokenExpired=false;
-  S.scanStart=Date.now();S.eta=null;S.activeNames=new Set();
-  RateLimit.reset();
-  render();
 
   const _dbgProject=new URLSearchParams(location.search).get('project');
   const active=S.allAdminProjects.filter(p=>p.status==='active'&&
     (!_dbgProject||p.name?.toLowerCase().includes(_dbgProject.toLowerCase())));
-  if(_dbgProject)console.warn(`[DEBUG] project filter "${_dbgProject}" → ${active.length} match(es):`,active.map(p=>p.name));
 
-  // For 2-legged (app token): skip member pre-filter entirely — the app has hub-wide
-  // folder access regardless of project membership, which is the whole point of 2-legged.
-  // For 3-legged (user token): pre-filter saves one API call per non-member project.
   let memberIds=new Set(),hasMemberList=false;
   if(S.authMode!=='2-legged'){
     memberIds=await getMemberProjectIds(hub.id);
     hasMemberList=memberIds.size>0;
   }
 
-  S.ptotal=active.length;
   S.projects=active.map(p=>{
     const dmId='b.'+p.id;
     const noAccess=hasMemberList&&!memberIds.has(dmId);
@@ -1154,21 +1139,32 @@ async function startScan(){
       id:dmId,adminId:p.id,
       name:p.name||p.id,status:p.status,
       accUrl:`https://acc.autodesk.com/docs/files/projects/${p.id}`,
-      pending:!noAccess,
-      scanning:false,
-      noAccess,
+      pending:!noAccess,scanning:false,noAccess,
       c4rFiles:[],cloudFiles:[],
       c4rVersion:null,c4rVersions:[],c4rCount:0,cloudCount:0,c4rCopyCount:0,lastMod:null,
-      uniqueC4RFiles:[],systemFiles:[],
-      skippedFolders:0,
-      scanStart:null,scanTime:null
+      uniqueC4RFiles:[],systemFiles:[],skippedFolders:0,scanStart:null,scanTime:null
     };
   });
   S.projects.filter(p=>p.noAccess).forEach(p=>p.pending=false);
   S.pdone=S.projects.filter(p=>p.noAccess).length;
   S.ptotal=S.projects.length;
+  S.groups=buildGroups(S.projects);
+  render(); // shows all projects as Queued — scan hasn't started
+}
 
-  // Build groups of GROUP_SIZE — groups scan sequentially, parallel within each group
+async function startScan(){
+  const hub=S.hub;
+  // Apply name filter — remove non-matching pending projects before scanning
+  if(S.search.trim()){
+    const q=S.search.trim().toLowerCase();
+    S.projects=S.projects.filter(p=>p.noAccess||p.name.toLowerCase().includes(q));
+  }
+  S.scanning=true;S.aborted=false;
+  S.pct=0;S.pdone=S.projects.filter(p=>p.noAccess).length;
+  S.error=null;S.tokenExpired=false;
+  S.scanStart=Date.now();S.eta=null;S.activeNames=new Set();
+  RateLimit.reset();
+  S.ptotal=S.projects.length;
   S.groups=buildGroups(S.projects);
   render();
 
@@ -2047,6 +2043,12 @@ ${nvFileCount>0&&!S.scanning?`<details style="margin-bottom:12px;background:var(
       <button class="tbar-btn${S.threshold===2021?' sel':''}" onclick="setThresh(2021)">≤ 2021</button>
       <button class="tbar-btn${S.threshold===2022?' sel':''}" onclick="setThresh(2022)">≤ 2022</button>
     </div>
+    ${S.projects.length>0&&!S.scanning&&S.projects.some(p=>p.pending)?(()=>{
+      const q=S.search.trim().toLowerCase();
+      const n=q?S.projects.filter(p=>!p.noAccess&&p.name.toLowerCase().includes(q)).length
+               :S.projects.filter(p=>!p.noAccess).length;
+      return`<button class="btn btn-p btn-sm" onclick="startScan()" ${n===0?'disabled':''}>Scan ${n} project${n!==1?'s':''}</button>`;
+    })():''}
   </div>
 </div>
 
